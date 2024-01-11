@@ -1,17 +1,58 @@
 Changelog
 =========
 
-[1.21.2] - 2023-06-12
+[1.22.0] - 2023-08-15
 ----------------------------
 
 ### New Features
 
-- none
+- [ALL - fingerprint in config files managed by roles](https://bugzilla.redhat.com/show_bug.cgi?id=2186910)
+- [ad_integration - add ad_integration_force_rejoin](https://bugzilla.redhat.com/show_bug.cgi?id=2211723)
+- [certificate - add mode parameter to change permissions for cert files](https://bugzilla.redhat.com/show_bug.cgi?id=2218204)
+- [firewall - missing module in linux-system-roles.firewall to create an ipset](https://bugzilla.redhat.com/show_bug.cgi?id=2140880)
+- [firewall - fix: reload on resetting to defaults](https://bugzilla.redhat.com/show_bug.cgi?id=2224648)
+- [firewall - should have option to disable conflicting services](https://bugzilla.redhat.com/show_bug.cgi?id=2222809)
+- [ha_cluster - Add possibility to load SBD watchdog kernel modules](https://bugzilla.redhat.com/show_bug.cgi?id=2190478)
+- [ha_cluster - cluster and quorum can have distinct passwords](https://bugzilla.redhat.com/show_bug.cgi?id=2216485)
+- [ha_cluster - support for resource and operation defaults](https://bugzilla.redhat.com/show_bug.cgi?id=2190483)
+- [kdump - support auto_reset_crashkernel, dracut_args, deprecate /etc/sysconfig/kdump](https://bugzilla.redhat.com/show_bug.cgi?id=2211272)
+- [keylime_server - system role for managing keylime servers](https://bugzilla.redhat.com/show_bug.cgi?id=2224387)
+- [network - Support configuring auto-dns setting](https://bugzilla.redhat.com/show_bug.cgi?id=2211273)
+- [network - Support no-aaaa DNS option](https://bugzilla.redhat.com/show_bug.cgi?id=2218595)
+- [podman - allow container networking configuration](https://bugzilla.redhat.com/show_bug.cgi?id=2220963)
+- [podman - support for healthchecks and healthcheck actions](https://bugzilla.redhat.com/show_bug.cgi?id=2220961)
+- [podman - support quadlet units](https://bugzilla.redhat.com/show_bug.cgi?id=2220962)
+- [postgresql - [RFE] system role for PostgreSQL management](https://bugzilla.redhat.com/show_bug.cgi?id=2151371)
+- [rhc - implement rhc_proxy.scheme](https://bugzilla.redhat.com/show_bug.cgi?id=2211778)
+- [rhc - [RFE] New role for Red Hat subscription management, insights management [rhel-8.9.0]](https://bugzilla.redhat.com/show_bug.cgi?id=2179016)
+- [ssh - add ssh_backup option with default true](https://bugzilla.redhat.com/show_bug.cgi?id=2216759)
+- [storage - RFE for the storage system role to support configuring the stripe size for RAID LVM volumes](https://bugzilla.redhat.com/show_bug.cgi?id=2141961)
+- [storage - [RFE] user-specified mount point owner and permissions](https://bugzilla.redhat.com/show_bug.cgi?id=2181661)
+- [systemd - system role for managing systemd units](https://bugzilla.redhat.com/show_bug.cgi?id=2224388)
 
 ### Bug Fixes
 
-- [rhc - activation key registration fails if system is already registered](https://bugzilla.redhat.com/show_bug.cgi?id=2214283)
-- [rhc - system role does not apply Insights tags](https://bugzilla.redhat.com/show_bug.cgi?id=2214287)
+- [ALL - facts being gathered unnecessarily](https://bugzilla.redhat.com/show_bug.cgi?id=2223036)
+- [ad_integration - leaks credentials when in check_mode](https://bugzilla.redhat.com/show_bug.cgi?id=2233183)
+- [certificate - rhel-system-roles.certificate does not re-issue after updating key_size](https://bugzilla.redhat.com/show_bug.cgi?id=2186057)
+- [firewall - fix: reload on resetting to defaults](https://bugzilla.redhat.com/show_bug.cgi?id=2224648)
+- [firewall - Check mode fails with replacing previous rules](https://issues.redhat.com/browse/RHEL-899)
+- [firewall - Check mode fails when creating new firewall service](https://bugzilla.redhat.com/show_bug.cgi?id=2222433)
+- [firewall - Ansible RHEL firewall system role not idempotent when configuring the interface using the role in rhel9](https://issues.redhat.com/browse/RHEL-918)
+- [firewall - Don't install python(3)-firewall it's a dependency of firewalld](https://bugzilla.redhat.com/show_bug.cgi?id=2216521)
+- [firewall - fix: files: overwrite firewalld.conf on previous replaced](https://issues.redhat.com/browse/RHEL-1496)
+- [kdump - use failure_action instead of default on EL9 and later](https://issues.redhat.com/browse/RHEL-907)
+- [kdump - role: "Write new authorized_keys if needed" task idempotency issues](https://bugzilla.redhat.com/show_bug.cgi?id=2232391)
+- [kdump - system role fails if kdump_ssh_user doesn't have a .ssh/authorized_keys file in home directory](https://bugzilla.redhat.com/show_bug.cgi?id=2232392)
+- [kdump - fix: ensure .ssh directory exists for kdump_ssh_user on kdump_ssh_server](https://issues.redhat.com/browse/RHEL-1398)
+- [kdump - fix: Ensure authorized_keys management works with multiple hosts](https://issues.redhat.com/browse/RHEL-1500)
+- [podman - Podman system role:  Unable to use podman_registries_conf to set unqualified-search-registries](https://bugzilla.redhat.com/show_bug.cgi?id=2226077)
+- [rhc - system role does not apply Insights tags](https://bugzilla.redhat.com/show_bug.cgi?id=2209441)
+- [storage - Cannot set chunk size for RAID: Unsupported parameters for (blivet) module: pools.raid_chunk_size](https://bugzilla.redhat.com/show_bug.cgi?id=2193057)
+- [storage - RAID volume pre cleanup - remove existing data from member disks as needed before creation](https://bugzilla.redhat.com/show_bug.cgi?id=2224094)
+- [storage - Storage: mounted devices that are in use cannot be resized](https://bugzilla.redhat.com/show_bug.cgi?id=2168738)
+- [storage - fix: use stat.pw_name, stat.gr_name instead of owner, group](https://issues.redhat.com/browse/RHEL-1498)
+- [tlog - use the proxy provider - the files provider is deprecated in sssd](https://bugzilla.redhat.com/show_bug.cgi?id=2191702)
 
 [1.21.1] - 2023-03-16
 ----------------------------
