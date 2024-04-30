@@ -1,5 +1,54 @@
 Changelog
 =========
+[1.23.0] - 2024-01-15
+----------------------------
+
+### New Features
+
+- [Use .README.html in spec instead of generating it](https://issues.redhat.com/browse/RHEL-5346)
+- [RHEL for Edge support in system roles](https://issues.redhat.com/browse/RHEL-3253)
+- [ad_integration - feat: Add sssd custom settings](https://issues.redhat.com/browse/RHEL-17668)
+- [ad_integration - Enable AD dynamic DNS updates](https://issues.redhat.com/browse/RHEL-1118)
+- [ad_integration - feat: add ad_integration_preserve_authselect_profile](https://issues.redhat.com/browse/RHEL-21382)
+- [ad_integration - feat: Add SSSD parameters support](https://issues.redhat.com/browse/RHEL-21133)
+- [bootloader - Create bootloader role (MVP)](https://issues.redhat.com/browse/RHEL-16336)
+- [fapolicyd - feat: Import code for fapolicyd system role](https://issues.redhat.com/browse/RHEL-16541)
+- [ha_cluster - [RFE] HA Cluster system role should be able to enable Resilient Storage repository](https://issues.redhat.com/browse/RHEL-15910)
+- [ha_cluster - [FutureFeature] Allow ha_cluster role to configure all qdevice options](https://issues.redhat.com/browse/RHEL-15908)
+- [ha_cluster - [FutureFeature] Allow ha_cluster role to configure fencing topology](https://issues.redhat.com/browse/RHEL-15876)
+- [ha_cluster - Setting cluster members attributes](https://issues.redhat.com/browse/RHEL-22106)
+- [journald - feat: Add support for ForwardToSyslog](https://issues.redhat.com/browse/RHEL-21117)
+- [logging - feat: Add support for the global config option preserveFQDN](https://issues.redhat.com/browse/RHEL-15932)
+- [logging - feat: Add support for general queue and general action parameters](https://issues.redhat.com/browse/RHEL-15439)
+- [metrics - [RFE] Metrics system role support for configuring PMIE webhooks](https://issues.redhat.com/browse/RHEL-13760)
+- [network - Add blackhole type route](https://issues.redhat.com/browse/RHEL-19579)
+- [postgresql - feat: Enable support for Postgresql 16](https://issues.redhat.com/browse/RHEL-18962)
+- [rhc - support RHEL 7 managed nodes](https://issues.redhat.com/browse/RHEL-16976)
+- [rhc - new rhc_insights.ansible_host parameter](https://issues.redhat.com/browse/RHEL-16974)
+- [rhc - new rhc_insights.display_name parameter](https://issues.redhat.com/browse/RHEL-16964)
+- [snapshot - New Role for storage snapshot management (lvm, etc.)](https://issues.redhat.com/browse/RHEL-16552)
+- [sshd - ansible-sshd Manage SSH certificates](https://issues.redhat.com/browse/RHEL-5972)
+- [storage - feat: Support for creating volumes without a FS](https://issues.redhat.com/browse/RHEL-16212)
+- [storage - Basic support for creating shared logical volumes](https://issues.redhat.com/browse/RHEL-1535)
+
+### Bug Fixes
+
+- [ha_cluster - high-availability firewall service is not added on qdevice node](https://issues.redhat.com/browse/RHEL-17875)
+- [ha_cluster - Timeout issue between SBD with delay-start and systemd unit](https://issues.redhat.com/browse/RHEL-18026)
+- [kdump - fix: retry read of kexec_crash_size](https://issues.redhat.com/browse/RHEL-3353)
+- [keylime_server - won't detect registrar start failure](https://issues.redhat.com/browse/RHEL-15909)
+- [logging - fix: check that logging_max_message_size is set, not rsyslog_max_message_size](https://issues.redhat.com/browse/RHEL-15037)
+- [logging - fix: avoid conf of RatelimitBurst when RatelimitInterval is zero](https://issues.redhat.com/browse/RHEL-19046)
+- [nbde_server - fix: Allow tangd socket override directory to be managed outside of the role](https://issues.redhat.com/browse/RHEL-25508)
+- [network - Ansible RHEL network system role issue with ipv6.routing-rules the prefix length for 'from' cannot be zero"](https://issues.redhat.com/browse/RHEL-1683)
+- [podman - fix: add no_log: true for tasks that can log secret data](https://issues.redhat.com/browse/RHEL-19241)
+- [podman - fix: cast secret data to string in order to allow JSON valued strings](https://issues.redhat.com/browse/RHEL-22309)
+- [podman - fix: name of volume quadlet service should be basename-volume.service](https://issues.redhat.com/browse/RHEL-21401)
+- [podman - fix: user linger needed before secrets](https://issues.redhat.com/browse/RHEL-22228)
+- [postgresql - unable to install PostgreSQL version 15 on RHEL](https://issues.redhat.com/browse/RHEL-5274)
+- [selinux - fix: Use `ignore_selinux_state` module option](https://issues.redhat.com/browse/RHEL-15870)
+- [selinux - fix: Print an error message when module to be created doesn't exist](https://issues.redhat.com/browse/RHEL-19043)
+- [selinux - fix: no longer use "item" as a loop variable](https://issues.redhat.com/browse/RHEL-19040)
 
 [1.22.0] - 2023-08-15
 ----------------------------
