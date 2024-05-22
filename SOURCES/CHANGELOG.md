@@ -1,5 +1,52 @@
 Changelog
 =========
+[1.23.0] - 2024-01-15
+----------------------------
+
+### New Features
+
+- [RHEL for Edge support in system roles](https://issues.redhat.com/browse/RHEL-15872)
+- [ad_integration - feat: Add sssd custom settings](https://issues.redhat.com/browse/RHEL-17667)
+- [ad_integration - Enable AD dynamic DNS updates](https://issues.redhat.com/browse/RHEL-1119)
+- [ad_integration - feat: add ad_integration_preserve_authselect_profile](https://issues.redhat.com/browse/RHEL-21383)
+- [ad_integration - feat: Add SSSD parameters support](https://issues.redhat.com/browse/RHEL-21134)
+- [bootloader - Create bootloader role (MVP)](https://issues.redhat.com/browse/RHEL-3241)
+- [fapolicyd - feat: Import code for fapolicyd system role](https://issues.redhat.com/browse/RHEL-16542)
+- [ha_cluster - [RFE] HA Cluster system role should be able to enable Resilient Storage repository](https://issues.redhat.com/browse/RHEL-14090)
+- [ha_cluster - [FutureFeature] Allow ha_cluster role to configure fencing topology](https://issues.redhat.com/browse/RHEL-4624)
+- [ha_cluster - [FutureFeature] Allow ha_cluster role to configure all qdevice options](https://issues.redhat.com/browse/RHEL-3264)
+- [ha_cluster - Setting cluster members attributes](https://issues.redhat.com/browse/RHEL-22108)
+- [journald - feat: Add support for ForwardToSyslog](https://issues.redhat.com/browse/RHEL-21123)
+- [logging - feat: Add support for the global config option preserveFQDN with a new logg…](https://issues.redhat.com/browse/RHEL-15933)
+- [logging - feat: Add support for general queue and general action parameters](https://issues.redhat.com/browse/RHEL-15440)
+- [metrics - [RFE] Metrics system role support for configuring PMIE webhooks](https://issues.redhat.com/browse/RHEL-18170)
+- [network - Add blackhole type route](https://issues.redhat.com/browse/RHEL-21491)
+- [postgresql - feat: Enable support for Postgresql 16](https://issues.redhat.com/browse/RHEL-18963)
+- [rhc - support RHEL 7 managed nodes](https://issues.redhat.com/browse/RHEL-16977)
+- [rhc - new rhc_insights.ansible_host parameter](https://issues.redhat.com/browse/RHEL-16975)
+- [rhc - new rhc_insights.display_name parameter](https://issues.redhat.com/browse/RHEL-16965)
+- [snapshot - New Role for storage snapshot management (lvm, etc.)](https://issues.redhat.com/browse/RHEL-16553)
+- [sshd - ansible-sshd Manage SSH certificates](https://issues.redhat.com/browse/RHEL-5985)
+- [storage - feat: Support for creating volumes without a FS](https://issues.redhat.com/browse/RHEL-16213)
+- [storage - Basic support for creating shared logical volumes (RHEL 8)](https://issues.redhat.com/browse/RHEL-14022)
+
+### Bug Fixes
+
+- [ha_cluster - high-availability firewall service is not added on qdevice node](https://issues.redhat.com/browse/RHEL-17874)
+- [ha_cluster - Timeout issue between SBD with delay-start and systemd unit](https://issues.redhat.com/browse/RHEL-4684)
+- [kdump - fix: retry read of kexec_crash_size](https://issues.redhat.com/browse/RHEL-3354)
+- [keylime_server - won't detect registrar start failure](https://issues.redhat.com/browse/RHEL-21946)
+- [logging - fix: check that logging_max_message_size is set, not rsyslog_max_message_size](https://issues.redhat.com/browse/RHEL-15038)
+- [nbde_server - fix: Allow tangd socket override directory to be managed outside of the role](https://issues.redhat.com/browse/RHEL-25509)
+- [network - Ansible RHEL network system role issue with ipv6.routing-rules the prefix length for 'from' cannot be zero"](https://issues.redhat.com/browse/RHEL-16501)
+- [podman - fix: cast secret data to string in order to allow JSON valued strings](https://issues.redhat.com/browse/RHEL-22310)
+- [podman - fix: name of volume quadlet service should be basename-volume.service](https://issues.redhat.com/browse/RHEL-21402)
+- [podman - fix: add no_log: true for tasks that can log secret data](https://issues.redhat.com/browse/RHEL-19242)
+- [podman - fix: user linger needed before secrets](https://issues.redhat.com/browse/RHEL-22229)
+- [postgresql - PostgreSQL system role: unable to install PostgreSQL version 15 on RHEL 9](https://issues.redhat.com/browse/RHEL-21400)
+- [selinux - fix: Use `ignore_selinux_state` module option](https://issues.redhat.com/browse/RHEL-15871)
+- [selinux - fix: Print an error message when module to be created doesn't exist](https://issues.redhat.com/browse/RHEL-19044)
+- [selinux - fix: no longer use "item" as a loop variable](https://issues.redhat.com/browse/RHEL-19042)
 
 [1.22.0] - 2023-08-15
 ----------------------------
