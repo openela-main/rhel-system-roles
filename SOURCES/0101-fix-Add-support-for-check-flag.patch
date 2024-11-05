@@ -1,0 +1,26 @@
+From 36acf32d30d106159ba9f2fa88d723d9577c9f15 Mon Sep 17 00:00:00 2001
+From: Samuel Bancal <Samuel.Bancal@groupe-t2i.com>
+Date: Thu, 14 Mar 2024 10:15:11 +0100
+Subject: [PATCH 101/115] fix: Add support for --check flag
+
+Fix: https://github.com/linux-system-roles/podman/issues/133
+(cherry picked from commit a47e6a95e2a5ee70714bf315d3e03310365d3650)
+---
+ tasks/main.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tasks/main.yml b/tasks/main.yml
+index 1b9ca4a..61f1d1c 100644
+--- a/tasks/main.yml
++++ b/tasks/main.yml
+@@ -21,6 +21,7 @@
+   when: (__podman_packages | difference(ansible_facts.packages))
+ 
+ - name: Get podman version
++  check_mode: false
+   command: podman --version
+   changed_when: false
+   register: __podman_version_output
+-- 
+2.46.0
+

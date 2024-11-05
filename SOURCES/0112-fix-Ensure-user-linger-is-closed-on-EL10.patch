@@ -1,0 +1,72 @@
+From 7473a31e3a0201131e42281bce9bbf9c88ac04ca Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Wed, 31 Jul 2024 18:52:57 -0600
+Subject: [PATCH 112/115] fix: Ensure user linger is closed on EL10
+
+Cause: There is an issue with loginctl on EL10 - doing cancel-linger
+will leave the user session in the closing state.
+
+Consequence: User sessions accumulate, and the test user cannot
+be removed.
+
+Fix: As suggested in the systemd issue, the fix is to shutdown and
+restart systemd-logind in this situation.
+
+Result: User cancel-linger works as expected.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 0ceea96a12bf0b462ca62d012d86cdcbd4f20eaa)
+---
+ tasks/cancel_linger.yml | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/tasks/cancel_linger.yml b/tasks/cancel_linger.yml
+index f233fc4..00d38c2 100644
+--- a/tasks/cancel_linger.yml
++++ b/tasks/cancel_linger.yml
+@@ -58,5 +58,42 @@
+       list | length == 0
+     - __podman_linger_secrets.stdout == ""
+   changed_when: true
++  register: __cancel_linger
+   args:
+     removes: /var/lib/systemd/linger/{{ __podman_linger_user }}
++
++- name: Wait for user session to exit closing state  # noqa no-handler
++  command: loginctl show-user -P State {{ __podman_linger_user | quote }}
++  register: __user_state
++  changed_when: false
++  until: __user_state.stdout != "closing"
++  when: __cancel_linger is changed
++  ignore_errors: true
++
++# see https://github.com/systemd/systemd/issues/26744#issuecomment-2261509208
++- name: Handle user stuck in closing state
++  when:
++    - __cancel_linger is changed
++    - __user_state is failed
++  block:
++    - name: Stop logind
++      service:
++        name: systemd-logind
++        state: stopped
++
++    - name: Wait for user session to exit closing state
++      command: loginctl show-user -P State {{ __podman_linger_user | quote }}
++      changed_when: false
++      register: __user_state
++      until: __user_state.stderr is match(__pat) or
++        __user_state.stdout != "closing"
++      failed_when:
++        - not __user_state.stderr is match(__pat)
++        - __user_state.stdout == "closing"
++      vars:
++        __pat: "Failed to get user: User ID .* is not logged in or lingering"
++
++    - name: Restart logind
++      service:
++        name: systemd-logind
++        state: started
+-- 
+2.46.0
+

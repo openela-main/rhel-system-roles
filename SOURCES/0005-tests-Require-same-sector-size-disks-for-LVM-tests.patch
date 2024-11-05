@@ -1,0 +1,96 @@
+From da871866f07e2990f37b3fdea404bbaf091d81b6 Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Thu, 30 May 2024 10:41:26 +0200
+Subject: [PATCH 05/10] tests: Require same sector size disks for LVM tests
+
+LVM VGs cannot be created on top of disks with different sector
+sizes so for tests that need multiple disks we need to make sure
+we get unused disks with the same sector size.
+
+Resolves: RHEL-25994
+(cherry picked from commit d8c5938c28417cc905a647ec30246a0fc4d19297)
+---
+ tests/tests_change_fs_use_partitions.yml            | 2 +-
+ tests/tests_create_lvm_cache_then_remove.yml        | 1 +
+ tests/tests_create_thinp_then_remove.yml            | 1 +
+ tests/tests_fatals_cache_volume.yml                 | 1 +
+ tests/tests_lvm_multiple_disks_multiple_volumes.yml | 1 +
+ tests/tests_lvm_pool_members.yml                    | 1 +
+ 6 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tests/tests_change_fs_use_partitions.yml b/tests/tests_change_fs_use_partitions.yml
+index 52afb7f..87fed69 100644
+--- a/tests/tests_change_fs_use_partitions.yml
++++ b/tests/tests_change_fs_use_partitions.yml
+@@ -31,7 +31,7 @@
+       include_tasks: get_unused_disk.yml
+       vars:
+         min_size: "{{ volume_size }}"
+-        max_return: 2
++        max_return: 1
+ 
+     - name: Create an LVM partition with the default file system type
+       include_role:
+diff --git a/tests/tests_create_lvm_cache_then_remove.yml b/tests/tests_create_lvm_cache_then_remove.yml
+index 1769a78..6b5d0a5 100644
+--- a/tests/tests_create_lvm_cache_then_remove.yml
++++ b/tests/tests_create_lvm_cache_then_remove.yml
+@@ -57,6 +57,7 @@
+         min_size: "{{ volume_group_size }}"
+         max_return: 2
+         disks_needed: 2
++        match_sector_size: true
+ 
+     - name: Create a cached LVM logical volume under volume group 'foo'
+       include_role:
+diff --git a/tests/tests_create_thinp_then_remove.yml b/tests/tests_create_thinp_then_remove.yml
+index bf6c4b1..2e7f046 100644
+--- a/tests/tests_create_thinp_then_remove.yml
++++ b/tests/tests_create_thinp_then_remove.yml
+@@ -23,6 +23,7 @@
+       include_tasks: get_unused_disk.yml
+       vars:
+         max_return: 3
++        match_sector_size: true
+ 
+     - name: Create a thinpool device
+       include_role:
+diff --git a/tests/tests_fatals_cache_volume.yml b/tests/tests_fatals_cache_volume.yml
+index c14cf3f..fcfdbb8 100644
+--- a/tests/tests_fatals_cache_volume.yml
++++ b/tests/tests_fatals_cache_volume.yml
+@@ -29,6 +29,7 @@
+       vars:
+         max_return: 2
+         disks_needed: 2
++        match_sector_size: true
+ 
+     - name: Verify that creating a cached partition volume fails
+       include_tasks: verify-role-failed.yml
+diff --git a/tests/tests_lvm_multiple_disks_multiple_volumes.yml b/tests/tests_lvm_multiple_disks_multiple_volumes.yml
+index 9a01ec5..68f2e76 100644
+--- a/tests/tests_lvm_multiple_disks_multiple_volumes.yml
++++ b/tests/tests_lvm_multiple_disks_multiple_volumes.yml
+@@ -29,6 +29,7 @@
+         min_size: "{{ volume_group_size }}"
+         max_return: 2
+         disks_needed: 2
++        match_sector_size: true
+ 
+     - name: >-
+         Create a logical volume spanning two physical volumes that changes its
+diff --git a/tests/tests_lvm_pool_members.yml b/tests/tests_lvm_pool_members.yml
+index d1b941d..63c10c7 100644
+--- a/tests/tests_lvm_pool_members.yml
++++ b/tests/tests_lvm_pool_members.yml
+@@ -59,6 +59,7 @@
+           vars:
+             min_size: "{{ volume_group_size }}"
+             disks_needed: 3
++            match_sector_size: true
+ 
+         - name: Create volume group 'foo' with 3 PVs
+           include_role:
+-- 
+2.46.0
+

@@ -1,0 +1,308 @@
+From 6a5722ce2a591c57e50ac4ff702c810bf452431d Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Thu, 6 Jun 2024 15:20:22 -0600
+Subject: [PATCH 110/115] fix: grab name of network to remove from quadlet file
+
+Cause: The code was using "systemd-" + name of quadlet for
+the network name when removing networks.
+
+Consequence: If the quadlet had a different NetworkName, the
+removal would fail.
+
+Fix: Grab the network quadlet file and grab the NetworkName from
+the file to use to remove the network.
+
+Result: The removal of quadlet networks will work both with and
+without a custom NetworkName in the quadlet file.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+
+This also adds a fix for el10 and Fedora which installs the iptables-nft
+package to allow rootless podman to manage networks using nftables.
+
+(cherry picked from commit bcd5a750250736a07605c72f98e50c1babcddf16)
+---
+ .ostree/packages-runtime-CentOS-10.txt |  3 ++
+ .ostree/packages-runtime-Fedora.txt    |  3 ++
+ .ostree/packages-runtime-RedHat-10.txt |  3 ++
+ tasks/cleanup_quadlet_spec.yml         | 43 +++++++++++++++++++++++++-
+ tests/files/quadlet-basic.network      |  5 +++
+ tests/tests_quadlet_basic.yml          | 31 +++++++------------
+ tests/tests_quadlet_demo.yml           | 19 +++---------
+ vars/CentOS_10.yml                     |  7 +++++
+ vars/Fedora.yml                        |  7 +++++
+ vars/RedHat_10.yml                     |  7 +++++
+ 10 files changed, 94 insertions(+), 34 deletions(-)
+ create mode 100644 .ostree/packages-runtime-CentOS-10.txt
+ create mode 100644 .ostree/packages-runtime-Fedora.txt
+ create mode 100644 .ostree/packages-runtime-RedHat-10.txt
+ create mode 100644 tests/files/quadlet-basic.network
+ create mode 100644 vars/CentOS_10.yml
+ create mode 100644 vars/Fedora.yml
+ create mode 100644 vars/RedHat_10.yml
+
+diff --git a/.ostree/packages-runtime-CentOS-10.txt b/.ostree/packages-runtime-CentOS-10.txt
+new file mode 100644
+index 0000000..16b8eae
+--- /dev/null
++++ b/.ostree/packages-runtime-CentOS-10.txt
+@@ -0,0 +1,3 @@
++iptables-nft
++podman
++shadow-utils-subid
+diff --git a/.ostree/packages-runtime-Fedora.txt b/.ostree/packages-runtime-Fedora.txt
+new file mode 100644
+index 0000000..16b8eae
+--- /dev/null
++++ b/.ostree/packages-runtime-Fedora.txt
+@@ -0,0 +1,3 @@
++iptables-nft
++podman
++shadow-utils-subid
+diff --git a/.ostree/packages-runtime-RedHat-10.txt b/.ostree/packages-runtime-RedHat-10.txt
+new file mode 100644
+index 0000000..16b8eae
+--- /dev/null
++++ b/.ostree/packages-runtime-RedHat-10.txt
+@@ -0,0 +1,3 @@
++iptables-nft
++podman
++shadow-utils-subid
+diff --git a/tasks/cleanup_quadlet_spec.yml b/tasks/cleanup_quadlet_spec.yml
+index ba68771..8ea069b 100644
+--- a/tasks/cleanup_quadlet_spec.yml
++++ b/tasks/cleanup_quadlet_spec.yml
+@@ -30,6 +30,43 @@
+   vars:
+     __service_error: Could not find the requested service
+ 
++- name: See if quadlet file exists
++  stat:
++    path: "{{ __podman_quadlet_file }}"
++  register: __podman_network_stat
++  when: __podman_quadlet_type == "network"
++
++- name: Get network quadlet network name
++  when:
++    - __podman_quadlet_type == "network"
++    - __podman_network_stat.stat.exists
++  block:
++    - name: Create tempdir
++      tempfile:
++        prefix: podman_
++        suffix: _lsr.ini
++        state: directory
++      register: __podman_network_tmpdir
++      delegate_to: localhost
++
++    - name: Fetch the network quadlet
++      fetch:
++        dest: "{{ __podman_network_tmpdir.path }}/network.ini"
++        src: "{{ __podman_quadlet_file }}"
++        flat: true
++
++    - name: Get the network name
++      set_fact:
++        __podman_network_name: "{{
++          lookup('ini', 'NetworkName section=Network file=' ~
++                 __podman_network_tmpdir.path ~ '/network.ini') }}"
++  always:
++    - name: Remove tempdir
++      file:
++        path: "{{ __podman_network_tmpdir.path }}"
++        state: absent
++      delegate_to: localhost
++
+ - name: Remove quadlet file
+   file:
+     path: "{{ __podman_quadlet_file }}"
+@@ -62,10 +99,14 @@
+       changed_when: true
+ 
+     - name: Remove network
+-      command: podman network rm systemd-{{ __podman_quadlet_name }}
++      command: podman network rm {{ __name | quote }}
+       changed_when: true
+       when: __podman_quadlet_type == "network"
+       environment:
+         XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
+       become: "{{ __podman_rootless | ternary(true, omit) }}"
+       become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
++      vars:
++        __name: "{{ __podman_network_name if
++          __podman_network_name | d('') | length > 0
++          else 'systemd-' ~ __podman_quadlet_name }}"
+diff --git a/tests/files/quadlet-basic.network b/tests/files/quadlet-basic.network
+new file mode 100644
+index 0000000..7db6e0d
+--- /dev/null
++++ b/tests/files/quadlet-basic.network
+@@ -0,0 +1,5 @@
++[Network]
++Subnet=192.168.29.0/24
++Gateway=192.168.29.1
++Label=app=wordpress
++NetworkName=quadlet-basic
+diff --git a/tests/tests_quadlet_basic.yml b/tests/tests_quadlet_basic.yml
+index 1b472be..2891b1a 100644
+--- a/tests/tests_quadlet_basic.yml
++++ b/tests/tests_quadlet_basic.yml
+@@ -19,12 +19,8 @@
+         state: present
+         data: "{{ __json_secret_data | string }}"
+     __podman_quadlet_specs:
+-      - name: quadlet-basic
+-        type: network
+-        Network:
+-          Subnet: 192.168.29.0/24
+-          Gateway: 192.168.29.1
+-          Label: app=wordpress
++      - file_src: files/quadlet-basic.network
++        state: started
+       - name: quadlet-basic-mysql
+         type: volume
+         Volume: {}
+@@ -197,7 +193,8 @@
+           failed_when: not __stat.stat.exists
+ 
+         # must clean up networks last - cannot remove a network
+-        # in use by a container
++        # in use by a container - using reverse assumes the network
++        # is defined first in the list
+         - name: Cleanup user
+           include_role:
+             name: linux-system-roles.podman
+@@ -206,10 +203,7 @@
+             __absent: {"state":"absent"}
+             podman_secrets: "{{ __podman_secrets | map('combine', __absent) |
+               list }}"
+-            podman_quadlet_specs: "{{ ((__podman_quadlet_specs |
+-              rejectattr('type', 'match', '^network$') | list) +
+-              (__podman_quadlet_specs |
+-               selectattr('type', 'match', '^network$') | list)) |
++            podman_quadlet_specs: "{{ __podman_quadlet_specs | reverse |
+               map('combine', __absent) | list }}"
+ 
+         - name: Ensure no linger
+@@ -242,6 +236,11 @@
+           changed_when: false
+ 
+       rescue:
++        - name: Check AVCs
++          command: grep type=AVC /var/log/audit/audit.log
++          changed_when: false
++          failed_when: false
++
+         - name: Dump journal
+           command: journalctl -ex
+           changed_when: false
+@@ -258,10 +257,7 @@
+                 __absent: {"state":"absent"}
+                 podman_secrets: "{{ __podman_secrets |
+                   map('combine', __absent) | list }}"
+-                podman_quadlet_specs: "{{ ((__podman_quadlet_specs |
+-                  rejectattr('type', 'match', '^network$') | list) +
+-                  (__podman_quadlet_specs |
+-                  selectattr('type', 'match', '^network$') | list)) |
++                podman_quadlet_specs: "{{ __podman_quadlet_specs | reverse |
+                   map('combine', __absent) | list }}"
+ 
+             - name: Remove test user
+@@ -277,10 +273,7 @@
+                 __absent: {"state":"absent"}
+                 podman_secrets: "{{ __podman_secrets |
+                   map('combine', __absent) | list }}"
+-                podman_quadlet_specs: "{{ ((__podman_quadlet_specs |
+-                  rejectattr('type', 'match', '^network$') | list) +
+-                  (__podman_quadlet_specs |
+-                  selectattr('type', 'match', '^network$') | list)) |
++                podman_quadlet_specs: "{{ __podman_quadlet_specs | reverse |
+                   map('combine', __absent) | list }}"
+ 
+           rescue:
+diff --git a/tests/tests_quadlet_demo.yml b/tests/tests_quadlet_demo.yml
+index 259a694..b6c27ef 100644
+--- a/tests/tests_quadlet_demo.yml
++++ b/tests/tests_quadlet_demo.yml
+@@ -11,7 +11,7 @@
+     podman_use_copr: false  # disable copr for CI testing
+     podman_fail_if_too_old: false
+     podman_create_host_directories: true
+-    podman_quadlet_specs:
++    __podman_quadlet_specs:
+       - file_src: quadlet-demo.network
+       - file_src: quadlet-demo-mysql.volume
+       - template_src: quadlet-demo-mysql.container.j2
+@@ -45,6 +45,7 @@
+           include_role:
+             name: linux-system-roles.podman
+           vars:
++            podman_quadlet_specs: "{{ __podman_quadlet_specs }}"
+             podman_pull_retry: true
+             podman_secrets:
+               - name: mysql-root-password-container
+@@ -149,19 +150,9 @@
+               include_role:
+                 name: linux-system-roles.podman
+               vars:
+-                podman_quadlet_specs:
+-                  - template_src: quadlet-demo-mysql.container.j2
+-                    state: absent
+-                  - file_src: quadlet-demo-mysql.volume
+-                    state: absent
+-                  - file_src: envoy-proxy-configmap.yml
+-                    state: absent
+-                  - file_src: quadlet-demo.kube
+-                    state: absent
+-                  - template_src: quadlet-demo.yml.j2
+-                    state: absent
+-                  - file_src: quadlet-demo.network
+-                    state: absent
++                __absent: {"state":"absent"}
++                podman_quadlet_specs: "{{ __podman_quadlet_specs |
++                  reverse | map('combine', __absent) | list }}"
+                 podman_secrets:
+                   - name: mysql-root-password-container
+                     state: absent
+diff --git a/vars/CentOS_10.yml b/vars/CentOS_10.yml
+new file mode 100644
+index 0000000..83589d5
+--- /dev/null
++++ b/vars/CentOS_10.yml
+@@ -0,0 +1,7 @@
++# SPDX-License-Identifier: MIT
++---
++# shadow-utils-subid for getsubids
++__podman_packages:
++  - iptables-nft
++  - podman
++  - shadow-utils-subid
+diff --git a/vars/Fedora.yml b/vars/Fedora.yml
+new file mode 100644
+index 0000000..83589d5
+--- /dev/null
++++ b/vars/Fedora.yml
+@@ -0,0 +1,7 @@
++# SPDX-License-Identifier: MIT
++---
++# shadow-utils-subid for getsubids
++__podman_packages:
++  - iptables-nft
++  - podman
++  - shadow-utils-subid
+diff --git a/vars/RedHat_10.yml b/vars/RedHat_10.yml
+new file mode 100644
+index 0000000..83589d5
+--- /dev/null
++++ b/vars/RedHat_10.yml
+@@ -0,0 +1,7 @@
++# SPDX-License-Identifier: MIT
++---
++# shadow-utils-subid for getsubids
++__podman_packages:
++  - iptables-nft
++  - podman
++  - shadow-utils-subid
+-- 
+2.46.0
+

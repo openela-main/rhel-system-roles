@@ -1,0 +1,89 @@
+From e8961d4e5ca7765e97d76a76e4741825e697aa8d Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Mon, 28 Oct 2024 10:27:59 -0600
+Subject: [PATCH] fix: make role work on el 8.8 and el 9.2 and podman version
+ less than 4.7.0
+
+Cause: Role was using podman and loginctl features not supported on el 8.8/9.2
+and podman versions less than 4.7.0.  NetworkName and VolumeName not supported
+until podman 4.7.0.  loginctl -P not supported in el 8.8/9.2.
+
+Consequence: The role would give failures when managing el 8.8/9.2 machines.
+
+Fix: Do not test with NetworkName and VolumeName when podman version is less
+than 4.7.0.  Use loginctl --value -p instead of -P which will work on all
+versions.
+
+Result: The role can manage el 8.8/9.2 machines.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit f16c3fb3c884cf3af446d19aeda86f27dafd1d1e)
+---
+ tasks/cancel_linger.yml                                     | 4 ++--
+ .../quadlet-basic.network.j2}                               | 2 ++
+ tests/tests_quadlet_basic.yml                               | 6 +++---
+ 3 files changed, 7 insertions(+), 5 deletions(-)
+ rename tests/{files/quadlet-basic.network => templates/quadlet-basic.network.j2} (62%)
+
+diff --git a/tasks/cancel_linger.yml b/tasks/cancel_linger.yml
+index 00d38c2..9eb67ff 100644
+--- a/tasks/cancel_linger.yml
++++ b/tasks/cancel_linger.yml
+@@ -63,7 +63,7 @@
+     removes: /var/lib/systemd/linger/{{ __podman_linger_user }}
+ 
+ - name: Wait for user session to exit closing state  # noqa no-handler
+-  command: loginctl show-user -P State {{ __podman_linger_user | quote }}
++  command: loginctl show-user --value -p State {{ __podman_linger_user | quote }}
+   register: __user_state
+   changed_when: false
+   until: __user_state.stdout != "closing"
+@@ -82,7 +82,7 @@
+         state: stopped
+ 
+     - name: Wait for user session to exit closing state
+-      command: loginctl show-user -P State {{ __podman_linger_user | quote }}
++      command: loginctl show-user --value -p State {{ __podman_linger_user | quote }}
+       changed_when: false
+       register: __user_state
+       until: __user_state.stderr is match(__pat) or
+diff --git a/tests/files/quadlet-basic.network b/tests/templates/quadlet-basic.network.j2
+similarity index 62%
+rename from tests/files/quadlet-basic.network
+rename to tests/templates/quadlet-basic.network.j2
+index 5b002ba..3419e3d 100644
+--- a/tests/files/quadlet-basic.network
++++ b/tests/templates/quadlet-basic.network.j2
+@@ -2,4 +2,6 @@
+ Subnet=192.168.29.0/24
+ Gateway=192.168.29.1
+ Label=app=wordpress
++{% if podman_version is version("4.7.0", ">=") %}
+ NetworkName=quadlet-basic-name
++{% endif %}
+diff --git a/tests/tests_quadlet_basic.yml b/tests/tests_quadlet_basic.yml
+index 5a06864..9563a60 100644
+--- a/tests/tests_quadlet_basic.yml
++++ b/tests/tests_quadlet_basic.yml
+@@ -19,15 +19,15 @@
+         state: present
+         data: "{{ __json_secret_data | string }}"
+     __podman_quadlet_specs:
+-      - file_src: files/quadlet-basic.network
++      - template_src: templates/quadlet-basic.network.j2
+         state: started
+       - name: quadlet-basic-unused-network
+         type: network
+         Network: {}
+       - name: quadlet-basic-mysql
+         type: volume
+-        Volume:
+-          VolumeName: quadlet-basic-mysql-name
++        Volume: "{{ {} if podman_version is version('4.7.0', '<')
++          else {'VolumeName': 'quadlet-basic-mysql-name'} }}"
+       - name: quadlet-basic-unused-volume
+         type: volume
+         Volume: {}
+-- 
+2.47.0
+

@@ -1,0 +1,40 @@
+From d2b59ac3758f51ffac5156e9f006b7ce9d8a28eb Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Tue, 4 Jun 2024 10:30:03 +0200
+Subject: [PATCH 09/10] fix: Fix expected error message in tests_misc.yml
+
+Different versions of blivet return a different error message when
+trying to create a filesystem with invalid parameters.
+
+On Fedora 39 and older:
+"Failed to commit changes to disk: (FSError('format failed: 1'),
+'/dev/mapper/foo-test1')"
+
+On Fedora 40 and newer:
+"Failed to commit changes to disk: Process reported exit code 1:
+mke2fs: invalid block size - 512\n"
+
+(cherry picked from commit 7ef66d85bd52f339483b24dbb8bc66e22054b378)
+---
+ tests/tests_misc.yml | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/tests/tests_misc.yml b/tests/tests_misc.yml
+index 363d843..432ec16 100644
+--- a/tests/tests_misc.yml
++++ b/tests/tests_misc.yml
+@@ -68,8 +68,9 @@
+       include_tasks: verify-role-failed.yml
+       vars:
+         __storage_failed_regex: >-
+-          Failed to commit changes to disk.*FSError.*format failed:
+-          1.*/dev/mapper/foo-test1
++          Failed to commit changes to disk.*(FSError.*format failed:
++          1.*/dev/mapper/foo-test1|
++          Process reported exit code 1: mke2fs: invalid block size - 512)
+         __storage_failed_msg: >-
+           Unexpected behavior when creating ext4 filesystem with invalid
+           parameter
+-- 
+2.46.0
+

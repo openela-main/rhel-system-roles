@@ -1,0 +1,70 @@
+From acc8e5458170cd653681beee8cec162e1d3e4f1f Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Mon, 19 Aug 2024 10:11:05 -0600
+Subject: [PATCH 113/115] test: skip quadlet tests on non-x86_64
+
+The images we currently use for quadlet testing are only available
+on x86_64
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 4a2ab77cafd9ae330f9260a5180680036707bf92)
+---
+ tests/tests_quadlet_basic.yml | 11 +++++++++++
+ tests/tests_quadlet_demo.yml  | 12 ++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/tests/tests_quadlet_basic.yml b/tests/tests_quadlet_basic.yml
+index 0fdced4..5a06864 100644
+--- a/tests/tests_quadlet_basic.yml
++++ b/tests/tests_quadlet_basic.yml
+@@ -48,6 +48,17 @@
+             - FOO=/bin/busybox-extras
+             - BAZ=test
+   tasks:
++    - name: Test is only supported on x86_64
++      debug:
++        msg: >
++          This test is only supported on x86_64 because the test images used are only
++          available on that platform.
++      when: ansible_facts["architecture"] != "x86_64"
++
++    - name: End test
++      meta: end_play
++      when: ansible_facts["architecture"] != "x86_64"
++
+     - name: Run test
+       block:
+         - name: See if not pulling images fails
+diff --git a/tests/tests_quadlet_demo.yml b/tests/tests_quadlet_demo.yml
+index 1cc7e62..f08d482 100644
+--- a/tests/tests_quadlet_demo.yml
++++ b/tests/tests_quadlet_demo.yml
+@@ -2,6 +2,7 @@
+ ---
+ - name: Deploy the quadlet demo app
+   hosts: all
++  gather_facts: true
+   vars_files:
+     - vars/test_vars.yml
+   vars:
+@@ -28,6 +29,17 @@
+       "/tmp/quadlet_demo":
+         mode: "0777"
+   tasks:
++    - name: Test is only supported on x86_64
++      debug:
++        msg: >
++          This test is only supported on x86_64 because the test images used are only
++          available on that platform.
++      when: ansible_facts["architecture"] != "x86_64"
++
++    - name: End test
++      meta: end_play
++      when: ansible_facts["architecture"] != "x86_64"
++
+     - name: Run tests
+       block:
+         - name: Generate certificates
+-- 
+2.46.0
+

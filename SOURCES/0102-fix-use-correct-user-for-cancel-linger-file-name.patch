@@ -1,0 +1,56 @@
+From 53f83475c59092e2c23d1957c2fc24c8ca4b6ad9 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Tue, 9 Apr 2024 18:27:25 -0600
+Subject: [PATCH 102/115] fix: use correct user for cancel linger file name
+
+Cause: When processing a list of kube or quadlet items, the
+code was using the user id associated with the list, not the
+item, to specify the linger filename.
+
+Consequence: The linger file does not exist, so the code
+does not cancel linger for the actual user.
+
+Fix: Use the correct username to construct the linger filename.
+
+Result: Lingering is cancelled for the correct users.
+
+QE: The test is now in tests_basic.yml
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 67b88b9aa0a1b1123c2ae24bb7ca4a527924cd13)
+---
+ tasks/cancel_linger.yml | 2 +-
+ tests/tests_basic.yml   | 7 +++++++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/tasks/cancel_linger.yml b/tasks/cancel_linger.yml
+index 761778b..ede71fe 100644
+--- a/tasks/cancel_linger.yml
++++ b/tasks/cancel_linger.yml
+@@ -59,4 +59,4 @@
+     - __podman_linger_secrets.stdout == ""
+   changed_when: true
+   args:
+-    removes: /var/lib/systemd/linger/{{ __podman_user }}
++    removes: /var/lib/systemd/linger/{{ __podman_linger_user }}
+diff --git a/tests/tests_basic.yml b/tests/tests_basic.yml
+index a9f01c9..d4f9238 100644
+--- a/tests/tests_basic.yml
++++ b/tests/tests_basic.yml
+@@ -409,6 +409,13 @@
+               ^[  ]*podman-kube@.+-{{ item[0] }}[.]yml[.]service[ ]+loaded[
+               ]+active
+ 
++        - name: Ensure no linger
++          stat:
++            path: /var/lib/systemd/linger/{{ item[1] }}
++          loop: "{{ test_names_users }}"
++          register: __stat
++          failed_when: __stat.stat.exists
++
+       rescue:
+         - name: Dump journal
+           command: journalctl -ex
+-- 
+2.46.0
+

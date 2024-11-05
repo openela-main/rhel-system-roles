@@ -1,0 +1,174 @@
+From 912c33982d9cc412eb72bc9baeab6696e29e7f27 Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Tue, 28 May 2024 16:23:48 +0200
+Subject: [PATCH 04/10] tests: Add a new 'match_sector_size' argument to
+ find_unused_disks
+
+Some storage pools cannot be created on disks with different
+sector sizes so we want to be able to find unused disks with the
+same sector sizes for our tests.
+
+Related: RHEL-25994
+(cherry picked from commit 368ecd0214dbaad7c42547eeac0565e51c924546)
+---
+ library/find_unused_disk.py    | 79 ++++++++++++++++++++++------------
+ tests/get_unused_disk.yml      |  1 +
+ tests/unit/test_unused_disk.py |  6 +--
+ 3 files changed, 56 insertions(+), 30 deletions(-)
+
+diff --git a/library/find_unused_disk.py b/library/find_unused_disk.py
+index 09b8ad5..098f235 100644
+--- a/library/find_unused_disk.py
++++ b/library/find_unused_disk.py
+@@ -39,6 +39,11 @@ options:
+         description: Specifies which disk interface will be accepted (scsi, virtio, nvme).
+         default: null
+         type: str
++
++    match_sector_size:
++        description: Specifies whether all returned disks must have the same (logical) sector size.
++        default: false
++        type: bool
+ '''
+ 
+ EXAMPLES = '''
+@@ -138,13 +143,13 @@ def get_partitions(disk_path):
+ 
+ 
+ def get_disks(module):
+-    buf = module.run_command(["lsblk", "-p", "--pairs", "--bytes", "-o", "NAME,TYPE,SIZE,FSTYPE"])[1]
++    buf = module.run_command(["lsblk", "-p", "--pairs", "--bytes", "-o", "NAME,TYPE,SIZE,FSTYPE,LOG-SEC"])[1]
+     disks = dict()
+     for line in buf.splitlines():
+         if not line:
+             continue
+ 
+-        m = re.search(r'NAME="(?P<path>[^"]*)" TYPE="(?P<type>[^"]*)" SIZE="(?P<size>\d+)" FSTYPE="(?P<fstype>[^"]*)"', line)
++        m = re.search(r'NAME="(?P<path>[^"]*)" TYPE="(?P<type>[^"]*)" SIZE="(?P<size>\d+)" FSTYPE="(?P<fstype>[^"]*)" LOG-SEC="(?P<ssize>\d+)"', line)
+         if m is None:
+             module.log(line)
+             continue
+@@ -152,31 +157,16 @@ def get_disks(module):
+         if m.group('type') != "disk":
+             continue
+ 
+-        disks[m.group('path')] = {"type": m.group('type'), "size": m.group('size'), "fstype": m.group('fstype')}
++        disks[m.group('path')] = {"type": m.group('type'), "size": m.group('size'),
++                                  "fstype": m.group('fstype'), "ssize": m.group('ssize')}
+ 
+     return disks
+ 
+ 
+-def run_module():
+-    """Create the module"""
+-    module_args = dict(
+-        max_return=dict(type='int', required=False, default=10),
+-        min_size=dict(type='str', required=False, default='0'),
+-        max_size=dict(type='str', required=False, default='0'),
+-        with_interface=dict(type='str', required=False, default=None)
+-    )
+-
+-    result = dict(
+-        changed=False,
+-        disks=[]
+-    )
+-
+-    module = AnsibleModule(
+-        argument_spec=module_args,
+-        supports_check_mode=True
+-    )
+-
++def filter_disks(module):
++    disks = {}
+     max_size = Size(module.params['max_size'])
++
+     for path, attrs in get_disks(module).items():
+         if is_ignored(path):
+             continue
+@@ -204,14 +194,49 @@ def run_module():
+         if not can_open(path):
+             continue
+ 
+-        result['disks'].append(os.path.basename(path))
+-        if len(result['disks']) >= module.params['max_return']:
+-            break
++        disks[path] = attrs
++
++    return disks
++
++
++def run_module():
++    """Create the module"""
++    module_args = dict(
++        max_return=dict(type='int', required=False, default=10),
++        min_size=dict(type='str', required=False, default='0'),
++        max_size=dict(type='str', required=False, default='0'),
++        with_interface=dict(type='str', required=False, default=None),
++        match_sector_size=dict(type='bool', required=False, default=False)
++    )
++
++    result = dict(
++        changed=False,
++        disks=[]
++    )
++
++    module = AnsibleModule(
++        argument_spec=module_args,
++        supports_check_mode=True
++    )
++
++    disks = filter_disks(module)
++
++    if module.params['match_sector_size']:
++        # pick the most disks with the same sector size
++        sector_sizes = dict()
++        for path, ss in [(path, disks[path]["ssize"]) for path in disks.keys()]:
++            if ss in sector_sizes.keys():
++                sector_sizes[ss].append(path)
++            else:
++                sector_sizes[ss] = [path]
++        disks = [os.path.basename(p) for p in max(sector_sizes.values(), key=len)]
++    else:
++        disks = [os.path.basename(p) for p in disks.keys()]
+ 
+-    if not result['disks']:
++    if not disks:
+         result['disks'] = "Unable to find unused disk"
+     else:
+-        result['disks'].sort()
++        result['disks'] = sorted(disks)[:int(module.params['max_return'])]
+ 
+     module.exit_json(**result)
+ 
+diff --git a/tests/get_unused_disk.yml b/tests/get_unused_disk.yml
+index 685541f..a61487e 100644
+--- a/tests/get_unused_disk.yml
++++ b/tests/get_unused_disk.yml
+@@ -19,6 +19,7 @@
+     max_size: "{{ max_size | d(omit) }}"
+     max_return: "{{ max_return | d(omit) }}"
+     with_interface: "{{ storage_test_use_interface | d(omit) }}"
++    match_sector_size: "{{ match_sector_size | d(omit) }}"
+   register: unused_disks_return
+ 
+ - name: Set unused_disks if necessary
+diff --git a/tests/unit/test_unused_disk.py b/tests/unit/test_unused_disk.py
+index 74c9cf1..ca44d0f 100644
+--- a/tests/unit/test_unused_disk.py
++++ b/tests/unit/test_unused_disk.py
+@@ -10,9 +10,9 @@ import os
+ blkid_data_pttype = [('/dev/sdx', '/dev/sdx: PTTYPE=\"dos\"'),
+                      ('/dev/sdy', '/dev/sdy: PTTYPE=\"test\"')]
+ 
+-blkid_data = [('/dev/sdx', 'UUID=\"hello-1234-56789\" TYPE=\"crypto_LUKS\"'),
+-              ('/dev/sdy', 'UUID=\"this-1s-a-t3st-f0r-ansible\" VERSION=\"LVM2 001\" TYPE=\"LVM2_member\" USAGE=\"raid\"'),
+-              ('/dev/sdz', 'LABEL=\"/data\" UUID=\"a12bcdef-345g-67h8-90i1-234j56789k10\" VERSION=\"1.0\" TYPE=\"ext4\" USAGE=\"filesystem\"')]
++blkid_data = [('/dev/sdx', 'UUID=\"hello-1234-56789\" TYPE=\"crypto_LUKS\" LOG-SEC=\"512\"'),
++              ('/dev/sdy', 'UUID=\"this-1s-a-t3st-f0r-ansible\" VERSION=\"LVM2 001\" TYPE=\"LVM2_member\" USAGE=\"raid\" LOG-SEC=\"512\"'),
++              ('/dev/sdz', 'LABEL=\"/data\" UUID=\"a12bcdef-345g-67h8-90i1-234j56789k10\" VERSION=\"1.0\" TYPE=\"ext4\" USAGE=\"filesystem\" LOG-SEC=\"512\"')]
+ 
+ holders_data_none = [('/dev/sdx', ''),
+                      ('/dev/dm-99', '')]
+-- 
+2.46.0
+

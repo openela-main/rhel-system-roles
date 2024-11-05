@@ -1,0 +1,26 @@
+From 2343663a17a42e71aa5b78ad5deca72823a0afb0 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Mon, 3 Jun 2024 13:15:07 -0600
+Subject: [PATCH 109/115] fix ansible-lint octal value issues
+
+(cherry picked from commit c684c68151f106b4a494bed865e138a0b54ecb43)
+---
+ tests/tests_quadlet_demo.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/tests_quadlet_demo.yml b/tests/tests_quadlet_demo.yml
+index a719f9c..259a694 100644
+--- a/tests/tests_quadlet_demo.yml
++++ b/tests/tests_quadlet_demo.yml
+@@ -98,7 +98,7 @@
+           get_url:
+             url: https://localhost:8000
+             dest: /run/out
+-            mode: 0600
++            mode: "0600"
+             validate_certs: false
+           register: __web_status
+           until: __web_status is success
+-- 
+2.46.0
+

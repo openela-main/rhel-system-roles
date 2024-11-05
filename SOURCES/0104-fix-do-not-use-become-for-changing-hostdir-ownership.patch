@@ -1,0 +1,210 @@
+From b2e79348094ea8d89b71727d82a80a9f3cfbb1ce Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Tue, 9 Apr 2024 18:28:19 -0600
+Subject: [PATCH 104/115] fix: do not use become for changing hostdir
+ ownership, and expose subuid/subgid info
+
+When creating host directories, do not use `become`, because if
+it needs to change ownership, that must be done by `root`, not
+as the rootless podman user.
+
+In order to test this, I have changed the role to export the subuid and subgid
+information for the rootless users as two dictionaries:
+`podman_subuid_info` and `podman_subgid_info`.  See `README.md` for
+usage.
+
+NOTE that depending on the namespace used by your containers, you might not
+be able to use the subuid and subgid information, which comes from `getsubids`
+if available, or directly from the files `/etc/subuid` and `/etc/subgid` on
+the host.
+
+QE: The test tests_basic.yml has been extended for this.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 3d02eb725355088df6c707717547f5ad6b7c400c)
+---
+ README.md                            | 28 ++++++++++++
+ tasks/create_update_kube_spec.yml    |  2 -
+ tasks/create_update_quadlet_spec.yml |  2 -
+ tasks/handle_user_group.yml          | 66 +++++++++++++++++++++-------
+ tests/tests_basic.yml                |  2 +
+ 5 files changed, 79 insertions(+), 21 deletions(-)
+
+diff --git a/README.md b/README.md
+index ea1edfb..e5a7c12 100644
+--- a/README.md
++++ b/README.md
+@@ -418,6 +418,34 @@ PodmanArgs=--secret=my-app-pwd,type=env,target=MYAPP_PASSWORD
+ {% endif %}
+ ```
+ 
++### podman_subuid_info, podman_subgid_info
++
++The role needs to ensure any users and groups are present in the subuid and
++subgid information.  Once it extracts this data, it will be available in
++`podman_subuid_info` and `podman_subgid_info`. These are dicts.  The key is the
++user or group name, and the value is a `dict` with two fields:
++
++* `start` - the start of the id range for that user or group, as an `int`
++* `range` - the id range for that user or group, as an `int`
++
++```yaml
++podman_host_directories:
++  "/var/lib/db":
++    mode: "0777"
++    owner: "{{ 1001 + podman_subuid_info['dbuser']['start'] - 1 }}"
++    group: "{{ 1001 + podman_subgid_info['dbgroup']['start'] - 1 }}"
++```
++
++Where `1001` is the uid for user `dbuser`, and `1001` is the gid for group
++`dbgroup`.
++
++**NOTE**: depending on the namespace used by your containers, you might not be
++able to use the subuid and subgid information, which comes from `getsubids` if
++available, or directly from the files `/etc/subuid` and `/etc/subgid` on the
++host.  See
++[podman user namespace modes](https://www.redhat.com/sysadmin/rootless-podman-user-namespace-modes)
++for more information.
++
+ ## Example Playbooks
+ 
+ Create rootless container with volume mount:
+diff --git a/tasks/create_update_kube_spec.yml b/tasks/create_update_kube_spec.yml
+index 95d7d35..7a8ba9c 100644
+--- a/tasks/create_update_kube_spec.yml
++++ b/tasks/create_update_kube_spec.yml
+@@ -32,8 +32,6 @@
+     __defaults: "{{ {'path': item} | combine(__podman_hostdirs_defaults) |
+       combine(__owner_group) }}"
+   loop: "{{ __podman_volumes }}"
+-  become: "{{ __podman_rootless | ternary(true, omit) }}"
+-  become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+   when:
+     - podman_create_host_directories | bool
+     - __podman_volumes | d([]) | length > 0
+diff --git a/tasks/create_update_quadlet_spec.yml b/tasks/create_update_quadlet_spec.yml
+index c3e0095..062c105 100644
+--- a/tasks/create_update_quadlet_spec.yml
++++ b/tasks/create_update_quadlet_spec.yml
+@@ -16,8 +16,6 @@
+     __defaults: "{{ {'path': item} | combine(__podman_hostdirs_defaults) |
+       combine(__owner_group) }}"
+   loop: "{{ __podman_volumes }}"
+-  become: "{{ __podman_rootless | ternary(true, omit) }}"
+-  become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+   when:
+     - podman_create_host_directories | bool
+     - __podman_volumes | d([]) | length > 0
+diff --git a/tasks/handle_user_group.yml b/tasks/handle_user_group.yml
+index 17300b6..ea9984d 100644
+--- a/tasks/handle_user_group.yml
++++ b/tasks/handle_user_group.yml
+@@ -52,10 +52,26 @@
+     - name: Check user with getsubids
+       command: getsubids {{ __podman_user | quote }}
+       changed_when: false
++      register: __podman_register_subuids
+ 
+     - name: Check group with getsubids
+       command: getsubids -g {{ __podman_group_name | quote }}
+       changed_when: false
++      register: __podman_register_subgids
++
++    - name: Set user subuid and subgid info
++      set_fact:
++        podman_subuid_info: "{{ podman_subuid_info | d({}) |
++          combine({__podman_user:
++            {'start': __subuid_data[2] | int, 'range': __subuid_data[3] | int}})
++          if __subuid_data | length > 0 else podman_subuid_info | d({}) }}"
++        podman_subgid_info: "{{ podman_subgid_info | d({}) |
++          combine({__podman_group_name:
++            {'start': __subgid_data[2] | int, 'range': __subgid_data[3] | int}})
++          if __subgid_data | length > 0 else podman_subgid_info | d({}) }}"
++      vars:
++        __subuid_data: "{{ __podman_register_subuids.stdout.split() | list }}"
++        __subgid_data: "{{ __podman_register_subgids.stdout.split() | list }}"
+ 
+ - name: Check subuid, subgid files if no getsubids
+   when:
+@@ -63,32 +79,48 @@
+     - __podman_user not in ["root", "0"]
+     - __podman_group not in ["root", "0"]
+   block:
+-    - name: Check if user is in subuid file
+-      find:
+-        path: /etc
+-        pattern: subuid
+-        use_regex: true
+-        contains: "^{{ __podman_user }}:.*$"
+-      register: __podman_uid_line_found
++    - name: Get subuid file
++      slurp:
++        path: /etc/subuid
++      register: __podman_register_subuids
++
++    - name: Get subgid file
++      slurp:
++        path: /etc/subgid
++      register: __podman_register_subgids
++
++    - name: Set user subuid and subgid info
++      set_fact:
++        podman_subuid_info: "{{ podman_subuid_info | d({}) |
++          combine({__podman_user:
++            {'start': __subuid_data[1] | int, 'range': __subuid_data[2] | int}})
++          if __subuid_data else podman_subuid_info | d({}) }}"
++        podman_subgid_info: "{{ podman_subgid_info | d({}) |
++          combine({__podman_group_name:
++            {'start': __subgid_data[1] | int, 'range': __subgid_data[2] | int}})
++          if __subgid_data else podman_subgid_info | d({}) }}"
++      vars:
++        __subuid_match_line: "{{
++          (__podman_register_subuids.content | b64decode).split('\n') | list |
++          select('match', '^' ~ __podman_user ~ ':') | list }}"
++        __subuid_data: "{{ __subuid_match_line[0].split(':') | list
++          if __subuid_match_line else null }}"
++        __subgid_match_line: "{{
++          (__podman_register_subgids.content | b64decode).split('\n') | list |
++          select('match', '^' ~ __podman_group_name ~ ':') | list }}"
++        __subgid_data: "{{ __subgid_match_line[0].split(':') | list
++          if __subgid_match_line else null }}"
+ 
+     - name: Fail if user not in subuid file
+       fail:
+         msg: >
+           The given podman user [{{ __podman_user }}] is not in the
+           /etc/subuid file - cannot continue
+-      when: not __podman_uid_line_found.matched
+-
+-    - name: Check if group is in subgid file
+-      find:
+-        path: /etc
+-        pattern: subgid
+-        use_regex: true
+-        contains: "^{{ __podman_group_name }}:.*$"
+-      register: __podman_gid_line_found
++      when: not __podman_user in podman_subuid_info
+ 
+     - name: Fail if group not in subgid file
+       fail:
+         msg: >
+           The given podman group [{{ __podman_group_name }}] is not in the
+           /etc/subgid file - cannot continue
+-      when: not __podman_gid_line_found.matched
++      when: not __podman_group_name in podman_subuid_info
+diff --git a/tests/tests_basic.yml b/tests/tests_basic.yml
+index d578b15..121c3a7 100644
+--- a/tests/tests_basic.yml
++++ b/tests/tests_basic.yml
+@@ -8,6 +8,8 @@
+     podman_host_directories:
+       "/tmp/httpd1-create":
+         mode: "0777"
++        owner: "{{ 1001 + podman_subuid_info['user1']['start'] - 1 }}"
++        group: "{{ 1001 + podman_subgid_info['user1']['start'] - 1 }}"
+     podman_run_as_user: root
+     test_names_users:
+       - [httpd1, user1, 1001]
+-- 
+2.46.0
+

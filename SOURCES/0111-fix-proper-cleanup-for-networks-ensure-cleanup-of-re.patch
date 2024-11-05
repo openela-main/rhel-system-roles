@@ -1,0 +1,615 @@
+From e11e1ff198f0840fcef6cbe75c74ca69dd22f694 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Mon, 8 Jul 2024 16:35:29 -0600
+Subject: [PATCH 111/115] fix: proper cleanup for networks; ensure cleanup of
+ resources
+
+Cause: The code was not managing network systemd quadlet units.
+
+Consequence: Network systemd quadlet units were not being stopped and
+disabled.  Subsequent runs would fail due to the network units not
+being cleaned up properly.
+
+Fix: The role manages network systemd quadlet units, including stopping
+and removing.
+
+Result: Systemd quadlet network units are properly cleaned up.
+
+In addition - improve the removal of all types of quadlet resources,
+and include code which can be used to test and debug quadlet resource
+removal.
+
+(cherry picked from commit a85908ec7f6f8e19908f8d4d18d6d7b64ab1d31e)
+---
+ README.md                                     |   6 +
+ defaults/main.yml                             |   4 +
+ tasks/cancel_linger.yml                       |   2 +-
+ tasks/cleanup_quadlet_spec.yml                | 188 +++++++++++++-----
+ tasks/handle_quadlet_spec.yml                 |   2 +
+ tasks/manage_linger.yml                       |   2 +-
+ tasks/parse_quadlet_file.yml                  |  57 ++++++
+ tests/files/quadlet-basic.network             |   2 +-
+ .../templates/quadlet-demo-mysql.container.j2 |   2 +-
+ tests/tests_quadlet_basic.yml                 |  69 ++++++-
+ tests/tests_quadlet_demo.yml                  |  33 +++
+ 11 files changed, 309 insertions(+), 58 deletions(-)
+ create mode 100644 tasks/parse_quadlet_file.yml
+
+diff --git a/README.md b/README.md
+index e5a7c12..8b6496e 100644
+--- a/README.md
++++ b/README.md
+@@ -388,6 +388,12 @@ a newer version.  For example, if you attempt to manage quadlet or secrets with
+ podman 4.3 or earlier, the role will fail with an error. If you want the role to
+ be skipped instead, use `podman_fail_if_too_old: false`.
+ 
++### podman_prune_images
++
++Boolean - default is `false` - by default, the role will not prune unused images
++when removing quadlets and other resources.  Set this to `true` to tell the role
++to remove unused images when cleaning up.
++
+ ## Variables Exported by the Role
+ 
+ ### podman_version
+diff --git a/defaults/main.yml b/defaults/main.yml
+index 92e4eb8..02453c9 100644
+--- a/defaults/main.yml
++++ b/defaults/main.yml
+@@ -109,3 +109,7 @@ podman_continue_if_pull_fails: false
+ # If true, if a pull attempt fails, it will be retried according
+ # to the default Ansible `until` behavior.
+ podman_pull_retry: false
++
++# Prune images when removing quadlets/kube specs -
++# this will remove all unused/unreferenced images
++podman_prune_images: false
+diff --git a/tasks/cancel_linger.yml b/tasks/cancel_linger.yml
+index ede71fe..f233fc4 100644
+--- a/tasks/cancel_linger.yml
++++ b/tasks/cancel_linger.yml
+@@ -49,7 +49,7 @@
+   when: __podman_xdg_stat.stat.exists
+ 
+ - name: Cancel linger if no more resources are in use
+-  command: loginctl disable-linger {{ __podman_linger_user }}
++  command: loginctl disable-linger {{ __podman_linger_user | quote }}
+   when:
+     - __podman_xdg_stat.stat.exists
+     - __podman_container_info.containers | length == 0
+diff --git a/tasks/cleanup_quadlet_spec.yml b/tasks/cleanup_quadlet_spec.yml
+index 8ea069b..df69243 100644
+--- a/tasks/cleanup_quadlet_spec.yml
++++ b/tasks/cleanup_quadlet_spec.yml
+@@ -33,39 +33,11 @@
+ - name: See if quadlet file exists
+   stat:
+     path: "{{ __podman_quadlet_file }}"
+-  register: __podman_network_stat
+-  when: __podman_quadlet_type == "network"
++  register: __podman_quadlet_stat
+ 
+-- name: Get network quadlet network name
+-  when:
+-    - __podman_quadlet_type == "network"
+-    - __podman_network_stat.stat.exists
+-  block:
+-    - name: Create tempdir
+-      tempfile:
+-        prefix: podman_
+-        suffix: _lsr.ini
+-        state: directory
+-      register: __podman_network_tmpdir
+-      delegate_to: localhost
+-
+-    - name: Fetch the network quadlet
+-      fetch:
+-        dest: "{{ __podman_network_tmpdir.path }}/network.ini"
+-        src: "{{ __podman_quadlet_file }}"
+-        flat: true
+-
+-    - name: Get the network name
+-      set_fact:
+-        __podman_network_name: "{{
+-          lookup('ini', 'NetworkName section=Network file=' ~
+-                 __podman_network_tmpdir.path ~ '/network.ini') }}"
+-  always:
+-    - name: Remove tempdir
+-      file:
+-        path: "{{ __podman_network_tmpdir.path }}"
+-        state: absent
+-      delegate_to: localhost
++- name: Parse quadlet file
++  include_tasks: parse_quadlet_file.yml
++  when: __podman_quadlet_stat.stat.exists
+ 
+ - name: Remove quadlet file
+   file:
+@@ -73,40 +45,158 @@
+     state: absent
+   register: __podman_file_removed
+ 
++- name: Refresh systemd  # noqa no-handler
++  systemd:
++    daemon_reload: true
++    scope: "{{ __podman_systemd_scope }}"
++  become: "{{ __podman_rootless | ternary(true, omit) }}"
++  become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
++  environment:
++    XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++  when: __podman_file_removed is changed  # noqa no-handler
++
++- name: Remove managed resource
++  command: >-
++    podman {{ 'rm' if __podman_quadlet_type == 'container'
++      else 'network rm' if __podman_quadlet_type == 'network'
++      else 'volume rm' if __podman_quadlet_type == 'volume' }}
++    {{ __podman_quadlet_resource_name | quote }}
++  register: __podman_rm
++  failed_when:
++    - __podman_rm is failed
++    - not __podman_rm.stderr is search(__str)
++  changed_when: __podman_rm.rc == 0
++  become: "{{ __podman_rootless | ternary(true, omit) }}"
++  become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
++  environment:
++    XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++  vars:
++    __str: " found: no such "
++    __type_to_name:  # map quadlet type to quadlet property name
++      container:
++        section: Container
++        name: ContainerName
++      network:
++        section: Network
++        name: NetworkName
++      volume:
++        section: Volume
++        name: VolumeName
++    __section: "{{ __type_to_name[__podman_quadlet_type]['section'] }}"
++    __name: "{{ __type_to_name[__podman_quadlet_type]['name'] }}"
++    __podman_quadlet_resource_name: "{{
++      __podman_quadlet_parsed[__section][__name]
++      if __section in __podman_quadlet_parsed
++      and __name in __podman_quadlet_parsed[__section]
++      else 'systemd-' ~ __podman_quadlet_name }}"
++  when:
++    - __podman_file_removed is changed  # noqa no-handler
++    - __podman_quadlet_type in __type_to_name
++    - not __podman_rootless or __podman_xdg_stat.stat.exists
++    - __podman_service_name | length > 0
++  no_log: true
++
++- name: Remove volumes
++  command: podman volume rm {{ item | quote }}
++  loop: "{{ __volume_names }}"
++  when:
++    - __podman_file_removed is changed  # noqa no-handler
++    - not __podman_rootless or __podman_xdg_stat.stat.exists
++    - __podman_service_name | length == 0
++    - __podman_quadlet_file.endswith(".yml") or
++      __podman_quadlet_file.endswith(".yaml")
++  changed_when: true
++  vars:
++    __volumes: "{{ __podman_quadlet_parsed |
++      selectattr('apiVersion', 'defined') | selectattr('spec', 'defined') |
++      map(attribute='spec') | selectattr('volumes', 'defined') |
++      map(attribute='volumes') | flatten }}"
++    __config_maps: "{{ __volumes | selectattr('configMap', 'defined') |
++      map(attribute='configMap') | selectattr('name', 'defined') |
++      map(attribute='name') | list }}"
++    __secrets: "{{ __volumes | selectattr('secret', 'defined') |
++      map(attribute='secret') | selectattr('secretName', 'defined') |
++      map(attribute='secretName') | list }}"
++    __pvcs: "{{ __volumes | selectattr('persistentVolumeClaim', 'defined') |
++      map(attribute='persistentVolumeClaim') | selectattr('claimName', 'defined') |
++      map(attribute='claimName') | list }}"
++    __volume_names: "{{ __config_maps + __secrets + __pvcs }}"
++  no_log: true
++
++- name: Clear parsed podman variable
++  set_fact:
++    __podman_quadlet_parsed: null
++
++- name: Prune images no longer in use
++  command: podman image prune --all -f
++  when:
++    - podman_prune_images | bool
++    - not __podman_rootless or __podman_xdg_stat.stat.exists
++  changed_when: true
++  become: "{{ __podman_rootless | ternary(true, omit) }}"
++  become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
++  environment:
++    XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++
+ - name: Manage linger
+   include_tasks: manage_linger.yml
+   vars:
+     __podman_item_state: absent
+ 
+-- name: Cleanup container resources
+-  when: __podman_file_removed is changed  # noqa no-handler
++- name: Collect information for testing/debugging
++  when:
++    - __podman_test_debug | d(false)
++    - not __podman_rootless or __podman_xdg_stat.stat.exists
+   block:
+-    - name: Reload systemctl  # noqa no-handler
+-      systemd:
+-        daemon_reload: true
+-        scope: "{{ __podman_systemd_scope }}"
++    - name: For testing and debugging - images
++      command: podman images -n
++      register: __podman_test_debug_images
++      changed_when: false
+       become: "{{ __podman_rootless | ternary(true, omit) }}"
+       become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+       environment:
+         XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
+ 
+-    - name: Prune images no longer in use
+-      command: podman image prune -f
++    - name: For testing and debugging - volumes
++      command: podman volume ls -n
++      register: __podman_test_debug_volumes
++      changed_when: false
++      become: "{{ __podman_rootless | ternary(true, omit) }}"
++      become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+       environment:
+         XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++
++    - name: For testing and debugging - containers
++      command: podman ps --noheading
++      register: __podman_test_debug_containers
++      changed_when: false
+       become: "{{ __podman_rootless | ternary(true, omit) }}"
+       become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+-      changed_when: true
++      environment:
++        XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++
++    - name: For testing and debugging - networks
++      command: podman network ls -n -q
++      register: __podman_test_debug_networks
++      changed_when: false
++      become: "{{ __podman_rootless | ternary(true, omit) }}"
++      become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
++      environment:
++        XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
+ 
+-    - name: Remove network
+-      command: podman network rm {{ __name | quote }}
+-      changed_when: true
+-      when: __podman_quadlet_type == "network"
++    - name: For testing and debugging - secrets
++      command: podman secret ls -n -q
++      register: __podman_test_debug_secrets
++      changed_when: false
++      no_log: true
++      become: "{{ __podman_rootless | ternary(true, omit) }}"
++      become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+       environment:
+         XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
++
++    - name: For testing and debugging - services
++      service_facts:
+       become: "{{ __podman_rootless | ternary(true, omit) }}"
+       become_user: "{{ __podman_rootless | ternary(__podman_user, omit) }}"
+-      vars:
+-        __name: "{{ __podman_network_name if
+-          __podman_network_name | d('') | length > 0
+-          else 'systemd-' ~ __podman_quadlet_name }}"
++      environment:
++        XDG_RUNTIME_DIR: "{{ __podman_xdg_runtime_dir }}"
+diff --git a/tasks/handle_quadlet_spec.yml b/tasks/handle_quadlet_spec.yml
+index ce6ef67..851c8a3 100644
+--- a/tasks/handle_quadlet_spec.yml
++++ b/tasks/handle_quadlet_spec.yml
+@@ -129,6 +129,8 @@
+       if __podman_quadlet_type in ['container', 'kube']
+       else __podman_quadlet_name ~ '-volume.service'
+       if __podman_quadlet_type in ['volume']
++      else __podman_quadlet_name ~ '-network.service'
++      if __podman_quadlet_type in ['network']
+       else none }}"
+ 
+ - name: Set per-container variables part 4
+diff --git a/tasks/manage_linger.yml b/tasks/manage_linger.yml
+index b506b70..be69490 100644
+--- a/tasks/manage_linger.yml
++++ b/tasks/manage_linger.yml
+@@ -10,7 +10,7 @@
+     - __podman_item_state | d('present') != 'absent'
+   block:
+     - name: Enable linger if needed
+-      command: loginctl enable-linger {{ __podman_user }}
++      command: loginctl enable-linger {{ __podman_user | quote }}
+       when: __podman_rootless | bool
+       args:
+         creates: /var/lib/systemd/linger/{{ __podman_user }}
+diff --git a/tasks/parse_quadlet_file.yml b/tasks/parse_quadlet_file.yml
+new file mode 100644
+index 0000000..5f5297f
+--- /dev/null
++++ b/tasks/parse_quadlet_file.yml
+@@ -0,0 +1,57 @@
++---
++# Input:
++# * __podman_quadlet_file - path to quadlet file to parse
++# Output:
++# * __podman_quadlet_parsed - dict
++- name: Slurp quadlet file
++  slurp:
++    path: "{{ __podman_quadlet_file }}"
++  register: __podman_quadlet_raw
++  no_log: true
++
++- name: Parse quadlet file
++  set_fact:
++    __podman_quadlet_parsed: |-
++      {% set rv = {} %}
++      {% set section = ["DEFAULT"] %}
++      {% for line in __val %}
++      {%   if line.startswith("[") %}
++      {%     set val = line.replace("[", "").replace("]", "") %}
++      {%     set _ = section.__setitem__(0, val) %}
++      {%   else %}
++      {%     set ary = line.split("=", 1) %}
++      {%     set key = ary[0] %}
++      {%     set val = ary[1] %}
++      {%     if key in rv.get(section[0], {}) %}
++      {%       set curval = rv[section[0]][key] %}
++      {%       if curval is string %}
++      {%         set newary = [curval, val] %}
++      {%         set _ = rv[section[0]].__setitem__(key, newary) %}
++      {%       else %}
++      {%         set _ = rv[section[0]][key].append(val) %}
++      {%       endif %}
++      {%     else %}
++      {%       set _ = rv.setdefault(section[0], {}).__setitem__(key, val) %}
++      {%     endif %}
++      {%   endif %}
++      {% endfor %}
++      {{ rv }}
++  vars:
++    __val: "{{ (__podman_quadlet_raw.content | b64decode).split('\n') |
++      select | reject('match', '#') | list }}"
++  when: __podman_service_name | length > 0
++  no_log: true
++
++- name: Parse quadlet yaml file
++  set_fact:
++    __podman_quadlet_parsed: "{{ __podman_quadlet_raw.content | b64decode |
++      from_yaml_all }}"
++  when:
++    - __podman_service_name | length == 0
++    - __podman_quadlet_file.endswith(".yml") or
++      __podman_quadlet_file.endswith(".yaml")
++  no_log: true
++
++- name: Reset raw variable
++  set_fact:
++    __podman_quadlet_raw: null
+diff --git a/tests/files/quadlet-basic.network b/tests/files/quadlet-basic.network
+index 7db6e0d..5b002ba 100644
+--- a/tests/files/quadlet-basic.network
++++ b/tests/files/quadlet-basic.network
+@@ -2,4 +2,4 @@
+ Subnet=192.168.29.0/24
+ Gateway=192.168.29.1
+ Label=app=wordpress
+-NetworkName=quadlet-basic
++NetworkName=quadlet-basic-name
+diff --git a/tests/templates/quadlet-demo-mysql.container.j2 b/tests/templates/quadlet-demo-mysql.container.j2
+index c84f0e8..92097d4 100644
+--- a/tests/templates/quadlet-demo-mysql.container.j2
++++ b/tests/templates/quadlet-demo-mysql.container.j2
+@@ -9,7 +9,7 @@ Volume=/tmp/quadlet_demo:/var/lib/quadlet_demo:Z
+ Network=quadlet-demo.network
+ {% if podman_version is version("4.5", ">=") %}
+ Secret=mysql-root-password-container,type=env,target=MYSQL_ROOT_PASSWORD
+-HealthCmd=/usr/bin/true
++HealthCmd=/bin/true
+ HealthOnFailure=kill
+ {% else %}
+ PodmanArgs=--secret=mysql-root-password-container,type=env,target=MYSQL_ROOT_PASSWORD
+diff --git a/tests/tests_quadlet_basic.yml b/tests/tests_quadlet_basic.yml
+index 2891b1a..0fdced4 100644
+--- a/tests/tests_quadlet_basic.yml
++++ b/tests/tests_quadlet_basic.yml
+@@ -21,7 +21,14 @@
+     __podman_quadlet_specs:
+       - file_src: files/quadlet-basic.network
+         state: started
++      - name: quadlet-basic-unused-network
++        type: network
++        Network: {}
+       - name: quadlet-basic-mysql
++        type: volume
++        Volume:
++          VolumeName: quadlet-basic-mysql-name
++      - name: quadlet-basic-unused-volume
+         type: volume
+         Volume: {}
+       - name: quadlet-basic-mysql
+@@ -30,7 +37,7 @@
+           WantedBy: default.target
+         Container:
+           Image: "{{ mysql_image }}"
+-          ContainerName: quadlet-basic-mysql
++          ContainerName: quadlet-basic-mysql-name
+           Volume: quadlet-basic-mysql.volume:/var/lib/mysql
+           Network: quadlet-basic.network
+           # Once 4.5 is released change this line to use the quadlet Secret key
+@@ -192,13 +199,14 @@
+           register: __stat
+           failed_when: not __stat.stat.exists
+ 
+-        # must clean up networks last - cannot remove a network
+-        # in use by a container - using reverse assumes the network
+-        # is defined first in the list
++        # must clean up in the reverse order of creating - and
++        # ensure networks are removed last
+         - name: Cleanup user
+           include_role:
+             name: linux-system-roles.podman
+           vars:
++            podman_prune_images: true
++            __podman_test_debug: true
+             podman_run_as_user: user_quadlet_basic
+             __absent: {"state":"absent"}
+             podman_secrets: "{{ __podman_secrets | map('combine', __absent) |
+@@ -206,6 +214,22 @@
+             podman_quadlet_specs: "{{ __podman_quadlet_specs | reverse |
+               map('combine', __absent) | list }}"
+ 
++        - name: Ensure no resources
++          assert:
++            that:
++              - __podman_test_debug_images.stdout == ""
++              - __podman_test_debug_networks.stdout_lines |
++                reject("match", "^podman$") |
++                reject("match", "^podman-default-kube-network$") |
++                list | length == 0
++              - __podman_test_debug_volumes.stdout == ""
++              - __podman_test_debug_containers.stdout == ""
++              - __podman_test_debug_secrets.stdout == ""
++              - ansible_facts["services"] | dict2items |
++                rejectattr("value.status", "match", "not-found") |
++                selectattr("key", "match", "quadlet-demo") |
++                list | length == 0
++
+         - name: Ensure no linger
+           stat:
+             path: /var/lib/systemd/linger/user_quadlet_basic
+@@ -230,12 +254,28 @@
+             - quadlet-basic-mysql.volume
+ 
+         - name: Check JSON
+-          command: podman exec quadlet-basic-mysql cat /tmp/test.json
++          command: podman exec quadlet-basic-mysql-name cat /tmp/test.json
+           register: __result
+           failed_when: __result.stdout != __json_secret_data
+           changed_when: false
+ 
+       rescue:
++        - name: Debug3
++          shell: |
++            set -x
++            set -o pipefail
++            exec 1>&2
++            #podman volume rm --all
++            #podman network prune -f
++            podman volume ls
++            podman network ls
++            podman secret ls
++            podman container ls
++            podman pod ls
++            podman images
++            systemctl list-units | grep quadlet
++          changed_when: false
++
+         - name: Check AVCs
+           command: grep type=AVC /var/log/audit/audit.log
+           changed_when: false
+@@ -253,6 +293,7 @@
+               include_role:
+                 name: linux-system-roles.podman
+               vars:
++                podman_prune_images: true
+                 podman_run_as_user: user_quadlet_basic
+                 __absent: {"state":"absent"}
+                 podman_secrets: "{{ __podman_secrets |
+@@ -270,12 +311,30 @@
+               include_role:
+                 name: linux-system-roles.podman
+               vars:
++                podman_prune_images: true
++                __podman_test_debug: true
+                 __absent: {"state":"absent"}
+                 podman_secrets: "{{ __podman_secrets |
+                   map('combine', __absent) | list }}"
+                 podman_quadlet_specs: "{{ __podman_quadlet_specs | reverse |
+                   map('combine', __absent) | list }}"
+ 
++            - name: Ensure no resources
++              assert:
++                that:
++                  - __podman_test_debug_images.stdout == ""
++                  - __podman_test_debug_networks.stdout_lines |
++                    reject("match", "^podman$") |
++                    reject("match", "^podman-default-kube-network$") |
++                    list | length == 0
++                  - __podman_test_debug_volumes.stdout == ""
++                  - __podman_test_debug_containers.stdout == ""
++                  - __podman_test_debug_secrets.stdout == ""
++                  - ansible_facts["services"] | dict2items |
++                    rejectattr("value.status", "match", "not-found") |
++                    selectattr("key", "match", "quadlet-demo") |
++                    list | length == 0
++
+           rescue:
+             - name: Dump journal
+               command: journalctl -ex
+diff --git a/tests/tests_quadlet_demo.yml b/tests/tests_quadlet_demo.yml
+index b6c27ef..1cc7e62 100644
+--- a/tests/tests_quadlet_demo.yml
++++ b/tests/tests_quadlet_demo.yml
+@@ -84,6 +84,11 @@
+           changed_when: false
+           failed_when: false
+ 
++        - name: Check volumes
++          command: podman volume ls
++          changed_when: false
++          failed_when: false
++
+         - name: Check pods
+           command: podman pod ps --ctr-ids --ctr-names --ctr-status
+           changed_when: false
+@@ -150,6 +155,8 @@
+               include_role:
+                 name: linux-system-roles.podman
+               vars:
++                podman_prune_images: true
++                __podman_test_debug: true
+                 __absent: {"state":"absent"}
+                 podman_quadlet_specs: "{{ __podman_quadlet_specs |
+                   reverse | map('combine', __absent) | list }}"
+@@ -161,7 +168,33 @@
+                   - name: envoy-certificates
+                     state: absent
+ 
++            - name: Ensure no resources
++              assert:
++                that:
++                  - __podman_test_debug_images.stdout == ""
++                  - __podman_test_debug_networks.stdout_lines |
++                    reject("match", "^podman$") |
++                    reject("match", "^podman-default-kube-network$") |
++                    list | length == 0
++                  - __podman_test_debug_volumes.stdout == ""
++                  - __podman_test_debug_containers.stdout == ""
++                  - __podman_test_debug_secrets.stdout == ""
++                  - ansible_facts["services"] | dict2items |
++                    rejectattr("value.status", "match", "not-found") |
++                    selectattr("key", "match", "quadlet-demo") |
++                    list | length == 0
++
+           rescue:
++            - name: Debug
++              shell: |
++                exec 1>&2
++                set -x
++                set -o pipefail
++                systemctl list-units --plain -l --all | grep quadlet || :
++                systemctl list-unit-files --all | grep quadlet || :
++                systemctl list-units --plain --failed -l --all | grep quadlet || :
++              changed_when: false
++
+             - name: Get journald
+               command: journalctl -ex
+               changed_when: false
+-- 
+2.46.0
+

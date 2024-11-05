@@ -1,0 +1,35 @@
+From 0a8ce32cdc093c388718d4fe28007259ac86854d Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Thu, 18 Apr 2024 08:39:33 -0600
+Subject: [PATCH 107/115] chore: use none in jinja code, not null
+
+Must use `none` in Jinja code, not `null`, which is used in YAML.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit fdf98595e9ecdacfed80d40c2539b18c7d715368)
+---
+ tasks/handle_user_group.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tasks/handle_user_group.yml b/tasks/handle_user_group.yml
+index ea9984d..0b98d99 100644
+--- a/tasks/handle_user_group.yml
++++ b/tasks/handle_user_group.yml
+@@ -104,12 +104,12 @@
+           (__podman_register_subuids.content | b64decode).split('\n') | list |
+           select('match', '^' ~ __podman_user ~ ':') | list }}"
+         __subuid_data: "{{ __subuid_match_line[0].split(':') | list
+-          if __subuid_match_line else null }}"
++          if __subuid_match_line else none }}"
+         __subgid_match_line: "{{
+           (__podman_register_subgids.content | b64decode).split('\n') | list |
+           select('match', '^' ~ __podman_group_name ~ ':') | list }}"
+         __subgid_data: "{{ __subgid_match_line[0].split(':') | list
+-          if __subgid_match_line else null }}"
++          if __subgid_match_line else none }}"
+ 
+     - name: Fail if user not in subuid file
+       fail:
+-- 
+2.46.0
+

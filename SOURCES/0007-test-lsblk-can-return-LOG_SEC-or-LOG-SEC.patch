@@ -1,0 +1,54 @@
+From 18edc9af26684f03e44fe2e22c82a8f93182da4a Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Wed, 5 Jun 2024 08:49:19 -0600
+Subject: [PATCH 07/10] test: lsblk can return LOG_SEC or LOG-SEC
+
+get_unused_disk is broken on some systems because `lsblk ... LOG-SEC` can
+return `LOG_SEC` with an underscore instead of the requested
+`LOG-SEC` with a dash.
+
+(cherry picked from commit 64333ce8aa42f4b961c39a443ac43cc6590097b3)
+---
+ library/find_unused_disk.py | 4 ++--
+ tests/get_unused_disk.yml   | 9 +++++++++
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/library/find_unused_disk.py b/library/find_unused_disk.py
+index 098f235..270fb58 100644
+--- a/library/find_unused_disk.py
++++ b/library/find_unused_disk.py
+@@ -149,9 +149,9 @@ def get_disks(module):
+         if not line:
+             continue
+ 
+-        m = re.search(r'NAME="(?P<path>[^"]*)" TYPE="(?P<type>[^"]*)" SIZE="(?P<size>\d+)" FSTYPE="(?P<fstype>[^"]*)" LOG-SEC="(?P<ssize>\d+)"', line)
++        m = re.search(r'NAME="(?P<path>[^"]*)" TYPE="(?P<type>[^"]*)" SIZE="(?P<size>\d+)" FSTYPE="(?P<fstype>[^"]*)" LOG[_-]SEC="(?P<ssize>\d+)"', line)
+         if m is None:
+-            module.log(line)
++            module.log("Line did not match: " + line)
+             continue
+ 
+         if m.group('type') != "disk":
+diff --git a/tests/get_unused_disk.yml b/tests/get_unused_disk.yml
+index a61487e..0402770 100644
+--- a/tests/get_unused_disk.yml
++++ b/tests/get_unused_disk.yml
+@@ -22,6 +22,15 @@
+     match_sector_size: "{{ match_sector_size | d(omit) }}"
+   register: unused_disks_return
+ 
++- name: Debug why there are no unused disks
++  shell: |
++    set -x
++    exec 1>&2
++    lsblk -p --pairs --bytes -o NAME,TYPE,SIZE,FSTYPE,LOG-SEC
++    journalctl -ex
++  changed_when: false
++  when: "'Unable to find unused disk' in unused_disks_return.disks"
++
+ - name: Set unused_disks if necessary
+   set_fact:
+     unused_disks: "{{ unused_disks_return.disks }}"
+-- 
+2.46.0
+

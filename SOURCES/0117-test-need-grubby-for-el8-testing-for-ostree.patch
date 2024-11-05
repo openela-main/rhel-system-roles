@@ -1,0 +1,33 @@
+From f5d7e3088a8662798ced2294ca9059799b7e1c33 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Fri, 25 Oct 2024 11:12:08 -0600
+Subject: [PATCH 117/117] test: need grubby for el8 testing for ostree
+
+EL8 tests need grubby for ostree building
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 881a03569b6dbebaf9fc9720ffe85039d1d0b72d)
+---
+ .ostree/packages-testing-CentOS-8.txt | 1 +
+ .ostree/packages-testing-RedHat-8.txt | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 .ostree/packages-testing-CentOS-8.txt
+ create mode 100644 .ostree/packages-testing-RedHat-8.txt
+
+diff --git a/.ostree/packages-testing-CentOS-8.txt b/.ostree/packages-testing-CentOS-8.txt
+new file mode 100644
+index 0000000..ae5e93e
+--- /dev/null
++++ b/.ostree/packages-testing-CentOS-8.txt
+@@ -0,0 +1 @@
++grubby
+diff --git a/.ostree/packages-testing-RedHat-8.txt b/.ostree/packages-testing-RedHat-8.txt
+new file mode 100644
+index 0000000..ae5e93e
+--- /dev/null
++++ b/.ostree/packages-testing-RedHat-8.txt
+@@ -0,0 +1 @@
++grubby
+-- 
+2.47.0
+

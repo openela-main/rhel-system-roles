@@ -1,0 +1,28 @@
+From dd93ef65b0d1929184d458914386086fca8b8d7a Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Wed, 10 Apr 2024 16:06:28 -0600
+Subject: [PATCH 103/115] test: do not check for root linger
+
+Do not check if there is a linger file for root.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 2b29e049daa28ba6c3b38f514cff9c62be5f3caf)
+---
+ tests/tests_basic.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tests/tests_basic.yml b/tests/tests_basic.yml
+index d4f9238..d578b15 100644
+--- a/tests/tests_basic.yml
++++ b/tests/tests_basic.yml
+@@ -412,6 +412,7 @@
+         - name: Ensure no linger
+           stat:
+             path: /var/lib/systemd/linger/{{ item[1] }}
++          when: item[1] != "root"
+           loop: "{{ test_names_users }}"
+           register: __stat
+           failed_when: __stat.stat.exists
+-- 
+2.46.0
+

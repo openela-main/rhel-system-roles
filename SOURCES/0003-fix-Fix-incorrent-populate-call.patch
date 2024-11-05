@@ -1,0 +1,28 @@
+From 7abfaeddab812e4eec0c3d3d6bcbabe047722c4f Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Wed, 10 Apr 2024 17:08:20 +0200
+Subject: [PATCH 03/10] fix: Fix incorrent populate call
+
+`populate()` is method of DeviceTree, not Blivet.
+
+(cherry picked from commit 6471e65abd429c82df37cbcf07fdf909e4277aa8)
+---
+ library/blivet.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/library/blivet.py b/library/blivet.py
+index 18807de..d82b86b 100644
+--- a/library/blivet.py
++++ b/library/blivet.py
+@@ -630,7 +630,7 @@ class BlivetVolume(BlivetBase):
+             device.original_format._key_file = self._volume.get('encryption_key')
+             device.original_format.passphrase = self._volume.get('encryption_password')
+             if device.isleaf:
+-                self._blivet.populate()
++                self._blivet.devicetree.populate()
+ 
+             if not device.isleaf:
+                 device = device.children[0]
+-- 
+2.46.0
+

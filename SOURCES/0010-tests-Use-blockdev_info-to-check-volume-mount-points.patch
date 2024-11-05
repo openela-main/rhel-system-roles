@@ -1,0 +1,180 @@
+From a86f7e013fe881e477b65509363bbb5af851662f Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Fri, 12 Apr 2024 14:45:15 +0200
+Subject: [PATCH 10/10] tests: Use blockdev_info to check volume mount points
+
+We can use the information from `lsblk` we already use for other
+checks instead of using the Ansible mountinfo facts. This makes
+the check simpler and also makes it easier to check for Stratis
+volume mount points, because of the complicated Stratis devices
+structure in /dev.
+
+(cherry picked from commit 10e657bde68ffa9495b2441ed9f472cf79edbb19)
+---
+ library/blockdev_info.py           |  2 +-
+ tests/test-verify-volume-fs.yml    | 51 ++++++++++++++++--------------
+ tests/test-verify-volume-mount.yml | 48 +++++-----------------------
+ 3 files changed, 37 insertions(+), 64 deletions(-)
+
+diff --git a/library/blockdev_info.py b/library/blockdev_info.py
+index 13858fb..ec018de 100644
+--- a/library/blockdev_info.py
++++ b/library/blockdev_info.py
+@@ -64,7 +64,7 @@ def fixup_md_path(path):
+ 
+ 
+ def get_block_info(module):
+-    buf = module.run_command(["lsblk", "-o", "NAME,FSTYPE,LABEL,UUID,TYPE,SIZE", "-p", "-P", "-a"])[1]
++    buf = module.run_command(["lsblk", "-o", "NAME,FSTYPE,LABEL,UUID,TYPE,SIZE,MOUNTPOINT", "-p", "-P", "-a"])[1]
+     info = dict()
+     for line in buf.splitlines():
+         dev = dict()
+diff --git a/tests/test-verify-volume-fs.yml b/tests/test-verify-volume-fs.yml
+index 8e488c5..63b2770 100644
+--- a/tests/test-verify-volume-fs.yml
++++ b/tests/test-verify-volume-fs.yml
+@@ -1,26 +1,31 @@
+ ---
+ # type
+-- name: Verify fs type
+-  assert:
+-    that: storage_test_blkinfo.info[storage_test_volume._device].fstype ==
+-      storage_test_volume.fs_type or
+-      (storage_test_blkinfo.info[storage_test_volume._device].fstype | length
+-       == 0 and storage_test_volume.fs_type == "unformatted")
+-  when: storage_test_volume.fs_type and _storage_test_volume_present
++- name: Check volume filesystem
++  when: storage_test_volume.type != "stratis"
++  block:
++  - name: Verify fs type
++    assert:
++      that: storage_test_blkinfo.info[storage_test_volume._device].fstype ==
++        storage_test_volume.fs_type or
++        (storage_test_blkinfo.info[storage_test_volume._device].fstype | length
++        == 0 and storage_test_volume.fs_type == "unformatted")
++    when:
++      - storage_test_volume.fs_type
++      - _storage_test_volume_present
+ 
+-# label
+-- name: Verify fs label
+-  assert:
+-    that: storage_test_blkinfo.info[storage_test_volume._device].label ==
+-      storage_test_volume.fs_label
+-    msg: >-
+-      Volume '{{ storage_test_volume.name }}' labels do not match when they
+-      should
+-      ('{{ storage_test_blkinfo.info[storage_test_volume._device].label }}',
+-      '{{ storage_test_volume.fs_label }}')
+-  when:
+-    - _storage_test_volume_present | bool
+-    # label for GFS2 is set manually with the extra `-t` fs_create_options
+-    # so we can't verify it here because it was not set with fs_label so
+-    # the label from blkinfo doesn't match the expected "empty" fs_label
+-    - storage_test_volume.fs_type != "gfs2"
++  # label
++  - name: Verify fs label
++    assert:
++      that: storage_test_blkinfo.info[storage_test_volume._device].label ==
++        storage_test_volume.fs_label
++      msg: >-
++        Volume '{{ storage_test_volume.name }}' labels do not match when they
++        should
++        ('{{ storage_test_blkinfo.info[storage_test_volume._device].label }}',
++        '{{ storage_test_volume.fs_label }}')
++    when:
++      - _storage_test_volume_present | bool
++      # label for GFS2 is set manually with the extra `-t` fs_create_options
++      # so we can't verify it here because it was not set with fs_label so
++      # the label from blkinfo doesn't match the expected "empty" fs_label
++      - storage_test_volume.fs_type != "gfs2"
+diff --git a/tests/test-verify-volume-mount.yml b/tests/test-verify-volume-mount.yml
+index cf86b34..17d2a01 100644
+--- a/tests/test-verify-volume-mount.yml
++++ b/tests/test-verify-volume-mount.yml
+@@ -15,20 +15,13 @@
+ 
+ - name: Set some facts
+   set_fact:
+-    storage_test_mount_device_matches: "{{ ansible_mounts |
+-      selectattr('device', 'match', '^' ~ storage_test_device_path ~ '$') |
+-      list }}"
+-    storage_test_mount_point_matches: "{{ ansible_mounts |
+-      selectattr('mount', 'match',
+-                 '^' ~ mount_prefix ~ storage_test_volume.mount_point ~ '$') |
+-      list if storage_test_volume.mount_point else [] }}"
+-    storage_test_mount_expected_match_count: "{{ 1
+-      if _storage_test_volume_present and storage_test_volume.mount_point and
+-      storage_test_volume.mount_point.startswith('/')
+-      else 0 }}"
+     storage_test_swap_expected_matches: "{{ 1 if
+       _storage_test_volume_present and
+       storage_test_volume.fs_type == 'swap' else 0 }}"
++    storage_test_mount_expected_mount_point: "{{
++      '[SWAP]' if storage_test_volume.fs_type == 'swap' else
++      '' if storage_test_volume.mount_point == 'none' else
++      mount_prefix + storage_test_volume.mount_point if storage_test_volume.mount_point else '' }}"
+   vars:
+     # assumes /opt which is /var/opt in ostree
+     mount_prefix: "{{ '/var' if __storage_is_ostree | d(false)
+@@ -50,23 +43,12 @@
+ #
+ - name: Verify the current mount state by device
+   assert:
+-    that: storage_test_mount_device_matches | length ==
+-      storage_test_mount_expected_match_count | int
++    that: storage_test_blkinfo.info[storage_test_volume._device].mountpoint ==
++      storage_test_mount_expected_mount_point
+     msg: >-
+       Found unexpected mount state for volume
+       '{{ storage_test_volume.name }}' device
+-  when: _storage_test_volume_present and storage_test_volume.mount_point
+-
+-#
+-# Verify mount directory (state, owner, group, permissions).
+-#
+-- name: Verify the current mount state by mount point
+-  assert:
+-    that: storage_test_mount_point_matches | length ==
+-      storage_test_mount_expected_match_count | int
+-    msg: >-
+-      Found unexpected mount state for volume
+-      '{{ storage_test_volume.name }}' mount point
++  when: _storage_test_volume_present
+ 
+ - name: Verify mount directory user
+   assert:
+@@ -104,18 +86,6 @@
+         storage_test_volume.mount_point and
+         storage_test_volume.mount_mode
+ 
+-#
+-# Verify mount fs type.
+-#
+-- name: Verify the mount fs type
+-  assert:
+-    that: storage_test_mount_point_matches[0].fstype ==
+-      storage_test_volume.fs_type
+-    msg: >-
+-      Found unexpected mount state for volume
+-      '{{ storage_test_volume.name }} fs type
+-  when: storage_test_mount_expected_match_count | int == 1
+-
+ #
+ # Verify swap status.
+ #
+@@ -145,10 +115,8 @@
+ 
+ - name: Unset facts
+   set_fact:
+-    storage_test_mount_device_matches: null
+-    storage_test_mount_point_matches: null
+-    storage_test_mount_expected_match_count: null
+     storage_test_swap_expected_matches: null
+     storage_test_sys_node: null
+     storage_test_swaps: null
+     storage_test_found_mount_stat: null
++    storage_test_mount_expected_mount_point: null
+-- 
+2.46.0
+

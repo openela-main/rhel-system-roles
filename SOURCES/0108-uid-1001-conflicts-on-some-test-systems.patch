@@ -1,0 +1,44 @@
+From 4824891e596c197e49557d9d2679cabc76e598e9 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Fri, 19 Apr 2024 07:33:41 -0600
+Subject: [PATCH 108/115] uid 1001 conflicts on some test systems
+
+(cherry picked from commit 5b7ad16d23b78f6f0f68638c0d69015ebb26b3b0)
+---
+ tests/tests_basic.yml | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/tests/tests_basic.yml b/tests/tests_basic.yml
+index b8ddc50..c91cc5f 100644
+--- a/tests/tests_basic.yml
++++ b/tests/tests_basic.yml
+@@ -8,14 +8,14 @@
+     podman_host_directories:
+       "{{ __test_tmpdir.path ~ '/httpd1-create' }}":
+         mode: "0777"
+-        owner: "{{ 1001 +
++        owner: "{{ 3001 +
+           podman_subuid_info[__podman_test_username]['start'] - 1 }}"
+-        group: "{{ 1001 +
++        group: "{{ 3001 +
+           podman_subgid_info[__podman_test_username]['start'] - 1 }}"
+     podman_run_as_user: root
+     __podman_test_username: podman_basic_user
+     test_names_users:
+-      - [httpd1, "{{ __podman_test_username }}", 1001]
++      - [httpd1, "{{ __podman_test_username }}", 3001]
+       - [httpd2, root, 0]
+       - [httpd3, root, 0]
+     podman_create_host_directories: true
+@@ -172,7 +172,7 @@
+         - name: Create user
+           user:
+             name: "{{ __podman_test_username }}"
+-            uid: 1001
++            uid: 3001
+ 
+         - name: Create tempfile for kube_src
+           tempfile:
+-- 
+2.46.0
+

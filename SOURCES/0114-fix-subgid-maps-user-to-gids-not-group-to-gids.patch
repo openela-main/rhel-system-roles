@@ -1,0 +1,208 @@
+From 5367219c4d12b988b531b00a90625cb6747baf13 Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Thu, 29 Aug 2024 08:47:03 -0600
+Subject: [PATCH 114/115] fix: subgid maps user to gids, not group to gids
+
+Cause: The podman role was looking up groups in the subgid values, not
+users.
+
+Consequence: If the user name was different from the group name, the role
+would fail to lookup the subgid values.
+
+Fix: Ensure that the user is used to lookup the subgid values.
+
+Result: The subgid values are looked up correctly.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit ad01b0091707fc4eae6f98f694f1a213fb9f8521)
+---
+ README.md                   | 45 ++++++++++++++++++-------------------
+ tasks/handle_user_group.yml | 32 ++++++++------------------
+ 2 files changed, 31 insertions(+), 46 deletions(-)
+
+diff --git a/README.md b/README.md
+index 8b6496e..6222098 100644
+--- a/README.md
++++ b/README.md
+@@ -35,12 +35,11 @@ restrictions:
+ * They must be already present on the system - the role will not create the
+   users or groups - the role will exit with an error if a non-existent user or
+   group is specified
+-* They must already exist in `/etc/subuid` and `/etc/subgid`, or are otherwise
+-  provided by your identity management system - the role will exit with an error
+-  if a specified user is not present in `/etc/subuid`, or if a specified group
+-  is not in `/etc/subgid`.  The role uses `getsubids` to check the user and
+-  group if available, or checks the files directly if `getsubids` is not
+-  available.
++* The user must already exist in `/etc/subuid` and `/etc/subgid`, or otherwise
++  be provided by your identity management system - the role will exit with an
++  error if a specified user is not present in `/etc/subuid` and `/etc/subgid`.
++  The role uses `getsubids` to check the user and group if available, or checks
++  the files directly if `getsubids` is not available.
+ 
+ ## Role Variables
+ 
+@@ -56,14 +55,15 @@ except for the following:
+   * `started` - Create the pods and systemd services, and start them running
+   * `created` - Create the pods and systemd services, but do not start them
+   * `absent` - Remove the pods and systemd services
+-* `run_as_user` - Use this to specify a per-pod user.  If you do not
+-  specify this, then the global default `podman_run_as_user` value will be used.
++* `run_as_user` - Use this to specify a per-pod user.  If you do not specify
++  this, then the global default `podman_run_as_user` value will be used.
+   Otherwise, `root` will be used.  NOTE: The user must already exist - the role
+-  will not create one.  The user must be present in `/etc/subuid`.
+-* `run_as_group` - Use this to specify a per-pod group.  If you do not
+-  specify this, then the global default `podman_run_as_group` value will be
+-  used.  Otherwise, `root` will be used.  NOTE: The group must already exist -
+-  the role will not create one.  The group must be present in `/etc/subgid`.
++  will not create one.  The user must be present in `/etc/subuid` and
++  `/etc/subgid`.
++* `run_as_group` - Use this to specify a per-pod group.  If you do not specify
++  this, then the global default `podman_run_as_group` value will be used.
++  Otherwise, `root` will be used.  NOTE: The group must already exist - the role
++  will not create one.
+ * `systemd_unit_scope` - The scope to use for the systemd unit.  If you do not
+   specify this, then the global default `podman_systemd_unit_scope` will be
+   used.  Otherwise, the scope will be `system` for root containers, and `user`
+@@ -278,14 +278,13 @@ podman_selinux_ports:
+ This is the name of the user to use for all rootless containers.  You can also
+ specify per-container username with `run_as_user` in `podman_kube_specs`.  NOTE:
+ The user must already exist - the role will not create one.  The user must be
+-present in `/etc/subuid`.
++present in `/etc/subuid` and `/etc/subgid`.
+ 
+ ### podman_run_as_group
+ 
+ This is the name of the group to use for all rootless containers.  You can also
+ specify per-container group name with `run_as_group` in `podman_kube_specs`.
+-NOTE: The group must already exist - the role will not create one.  The group must
+-be present in `/etc/subgid`.
++NOTE: The group must already exist - the role will not create one.
+ 
+ ### podman_systemd_unit_scope
+ 
+@@ -426,24 +425,24 @@ PodmanArgs=--secret=my-app-pwd,type=env,target=MYAPP_PASSWORD
+ 
+ ### podman_subuid_info, podman_subgid_info
+ 
+-The role needs to ensure any users and groups are present in the subuid and
++The role needs to ensure any users are present in the subuid and
+ subgid information.  Once it extracts this data, it will be available in
+ `podman_subuid_info` and `podman_subgid_info`. These are dicts.  The key is the
+-user or group name, and the value is a `dict` with two fields:
++user name, and the value is a `dict` with two fields:
+ 
+-* `start` - the start of the id range for that user or group, as an `int`
+-* `range` - the id range for that user or group, as an `int`
++* `start` - the start of the id range for that user, as an `int`
++* `range` - the id range for that user, as an `int`
+ 
+ ```yaml
+ podman_host_directories:
+   "/var/lib/db":
+     mode: "0777"
+     owner: "{{ 1001 + podman_subuid_info['dbuser']['start'] - 1 }}"
+-    group: "{{ 1001 + podman_subgid_info['dbgroup']['start'] - 1 }}"
++    group: "{{ 2001 + podman_subgid_info['dbuser']['start'] - 1 }}"
+ ```
+ 
+-Where `1001` is the uid for user `dbuser`, and `1001` is the gid for group
+-`dbgroup`.
++Where `1001` is the uid for user `dbuser`, and `2001` is the gid for the
++group you want to use.
+ 
+ **NOTE**: depending on the namespace used by your containers, you might not be
+ able to use the subuid and subgid information, which comes from `getsubids` if
+diff --git a/tasks/handle_user_group.yml b/tasks/handle_user_group.yml
+index 0b98d99..2e19cdd 100644
+--- a/tasks/handle_user_group.yml
++++ b/tasks/handle_user_group.yml
+@@ -25,19 +25,6 @@
+       {{ ansible_facts["getent_passwd"][__podman_user][2] }}
+       {%- endif -%}
+ 
+-- name: Get group information
+-  getent:
+-    database: group
+-    key: "{{ __podman_group }}"
+-    fail_key: false
+-  when: "'getent_group' not in ansible_facts or
+-    __podman_group not in ansible_facts['getent_group']"
+-
+-- name: Set group name
+-  set_fact:
+-    __podman_group_name: "{{ ansible_facts['getent_group'].keys() |
+-      list | first }}"
+-
+ - name: See if getsubids exists
+   stat:
+     path: /usr/bin/getsubids
+@@ -49,13 +36,13 @@
+     - __podman_user not in ["root", "0"]
+     - __podman_stat_getsubids.stat.exists
+   block:
+-    - name: Check user with getsubids
++    - name: Check with getsubids for user subuids
+       command: getsubids {{ __podman_user | quote }}
+       changed_when: false
+       register: __podman_register_subuids
+ 
+-    - name: Check group with getsubids
+-      command: getsubids -g {{ __podman_group_name | quote }}
++    - name: Check with getsubids for user subgids
++      command: getsubids -g {{ __podman_user | quote }}
+       changed_when: false
+       register: __podman_register_subgids
+ 
+@@ -66,7 +53,7 @@
+             {'start': __subuid_data[2] | int, 'range': __subuid_data[3] | int}})
+           if __subuid_data | length > 0 else podman_subuid_info | d({}) }}"
+         podman_subgid_info: "{{ podman_subgid_info | d({}) |
+-          combine({__podman_group_name:
++          combine({__podman_user:
+             {'start': __subgid_data[2] | int, 'range': __subgid_data[3] | int}})
+           if __subgid_data | length > 0 else podman_subgid_info | d({}) }}"
+       vars:
+@@ -77,7 +64,6 @@
+   when:
+     - not __podman_stat_getsubids.stat.exists
+     - __podman_user not in ["root", "0"]
+-    - __podman_group not in ["root", "0"]
+   block:
+     - name: Get subuid file
+       slurp:
+@@ -96,7 +82,7 @@
+             {'start': __subuid_data[1] | int, 'range': __subuid_data[2] | int}})
+           if __subuid_data else podman_subuid_info | d({}) }}"
+         podman_subgid_info: "{{ podman_subgid_info | d({}) |
+-          combine({__podman_group_name:
++          combine({__podman_user:
+             {'start': __subgid_data[1] | int, 'range': __subgid_data[2] | int}})
+           if __subgid_data else podman_subgid_info | d({}) }}"
+       vars:
+@@ -107,7 +93,7 @@
+           if __subuid_match_line else none }}"
+         __subgid_match_line: "{{
+           (__podman_register_subgids.content | b64decode).split('\n') | list |
+-          select('match', '^' ~ __podman_group_name ~ ':') | list }}"
++          select('match', '^' ~ __podman_user ~ ':') | list }}"
+         __subgid_data: "{{ __subgid_match_line[0].split(':') | list
+           if __subgid_match_line else none }}"
+ 
+@@ -118,9 +104,9 @@
+           /etc/subuid file - cannot continue
+       when: not __podman_user in podman_subuid_info
+ 
+-    - name: Fail if group not in subgid file
++    - name: Fail if user not in subgid file
+       fail:
+         msg: >
+-          The given podman group [{{ __podman_group_name }}] is not in the
++          The given podman user [{{ __podman_user }}] is not in the
+           /etc/subgid file - cannot continue
+-      when: not __podman_group_name in podman_subuid_info
++      when: not __podman_user in podman_subgid_info
+-- 
+2.46.0
+

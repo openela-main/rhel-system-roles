@@ -1,0 +1,64 @@
+From 9f561445271a14fee598e9a793f72297f66eae56 Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Wed, 10 Apr 2024 17:05:46 +0200
+Subject: [PATCH 02/10] fix: Fix recreate check for formats without labelling
+ support
+
+Formats like LUKS or LVMPV don't support labels so we need to skip
+the label check in BlivetVolume._reformat.
+
+Resolves: RHEL-29874
+(cherry picked from commit a70e8108110e30ebc5e7c404d39339c511f9bd09)
+---
+ library/blivet.py              |  3 +++
+ tests/tests_volume_relabel.yml | 20 ++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/library/blivet.py b/library/blivet.py
+index 20389ea..18807de 100644
+--- a/library/blivet.py
++++ b/library/blivet.py
+@@ -826,6 +826,9 @@ class BlivetVolume(BlivetBase):
+         if ((fmt is None and self._device.format.type is None)
+                 or (fmt is not None and self._device.format.type == fmt.type)):
+             # format is the same, no need to run reformatting
++            if not hasattr(self._device.format, "label"):
++                # not all formats support labels
++                return
+             dev_label = '' if self._device.format.label is None else self._device.format.label
+             if dev_label != fmt.label:
+                 # ...but the label has changed - schedule modification action
+diff --git a/tests/tests_volume_relabel.yml b/tests/tests_volume_relabel.yml
+index 8916b73..6624fbd 100644
+--- a/tests/tests_volume_relabel.yml
++++ b/tests/tests_volume_relabel.yml
+@@ -111,6 +111,26 @@
+     - name: Verify role results
+       include_tasks: verify-role-results.yml
+ 
++    - name: Format the device to LVMPV which doesn't support labels
++      include_role:
++        name: linux-system-roles.storage
++      vars:
++        storage_volumes:
++          - name: test1
++            type: disk
++            fs_type: lvmpv
++            disks: "{{ unused_disks }}"
++
++    - name: Rerun to check we don't try to relabel preexisitng LVMPV (regression test for RHEL-29874)
++      include_role:
++        name: linux-system-roles.storage
++      vars:
++        storage_volumes:
++          - name: test1
++            type: disk
++            fs_type: lvmpv
++            disks: "{{ unused_disks }}"
++
+     - name: Clean up
+       include_role:
+         name: linux-system-roles.storage
+-- 
+2.46.0
+

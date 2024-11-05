@@ -1,0 +1,74 @@
+From 8b3cfc1a30da1ab681eb8c250baa2d6395ecc0d2 Mon Sep 17 00:00:00 2001
+From: Vojtech Trefny <vtrefny@redhat.com>
+Date: Wed, 3 Apr 2024 15:12:00 +0200
+Subject: [PATCH 01/10] test: fix sector-based disk size calculation from
+ ansible_devices
+
+Device sizes specified in sectors are in general in 512 sectors
+regardless of the actual device physical sector size. Example of
+ansible_devices facts for a 4k sector size drive:
+
+...
+  "sectors": "41943040",
+  "sectorsize": "4096",
+  "size": "20.00 GB"
+...
+
+Resolves: RHEL-30959
+
+Signed-off-by: Vojtech Trefny <vtrefny@redhat.com>
+(cherry picked from commit bb1eb23ccd6e9475cd698f0a6f2f497ffefbccd2)
+---
+ tests/tests_create_lv_size_equal_to_vg.yml | 3 +--
+ tests/tests_misc.yml                       | 3 +--
+ tests/tests_resize.yml                     | 6 ++----
+ 3 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/tests/tests_create_lv_size_equal_to_vg.yml b/tests/tests_create_lv_size_equal_to_vg.yml
+index cab4f08..535f73b 100644
+--- a/tests/tests_create_lv_size_equal_to_vg.yml
++++ b/tests/tests_create_lv_size_equal_to_vg.yml
+@@ -8,8 +8,7 @@
+     volume_group_size: '10g'
+     lv_size: '10g'
+     unused_disk_subfact: '{{ ansible_devices[unused_disks[0]] }}'
+-    disk_size: '{{ unused_disk_subfact.sectors | int *
+-                   unused_disk_subfact.sectorsize | int }}'
++    disk_size: '{{ unused_disk_subfact.sectors | int * 512 }}'
+   tags:
+     - tests::lvm
+ 
+diff --git a/tests/tests_misc.yml b/tests/tests_misc.yml
+index 6373897..363d843 100644
+--- a/tests/tests_misc.yml
++++ b/tests/tests_misc.yml
+@@ -8,8 +8,7 @@
+     volume_group_size: "5g"
+     volume1_size: "4g"
+     unused_disk_subfact: "{{ ansible_devices[unused_disks[0]] }}"
+-    too_large_size: "{{ (unused_disk_subfact.sectors | int * 1.2) *
+-                         unused_disk_subfact.sectorsize | int }}"
++    too_large_size: "{{ (unused_disk_subfact.sectors | int * 1.2) * 512 }}"
+   tags:
+     - tests::lvm
+   tasks:
+diff --git a/tests/tests_resize.yml b/tests/tests_resize.yml
+index 06fb375..1cd2176 100644
+--- a/tests/tests_resize.yml
++++ b/tests/tests_resize.yml
+@@ -11,10 +11,8 @@
+     invalid_size1: xyz GiB
+     invalid_size2: none
+     unused_disk_subfact: '{{ ansible_devices[unused_disks[0]] }}'
+-    too_large_size: '{{ unused_disk_subfact.sectors | int * 1.2 *
+-                        unused_disk_subfact.sectorsize | int }}'
+-    disk_size: '{{ unused_disk_subfact.sectors | int *
+-                   unused_disk_subfact.sectorsize | int }}'
++    too_large_size: '{{ unused_disk_subfact.sectors | int * 1.2 * 512 }}'
++    disk_size: '{{ unused_disk_subfact.sectors | int * 512 }}'
+   tags:
+     - tests::lvm
+   tasks:
+-- 
+2.46.0
+

@@ -1,5 +1,34 @@
 Changelog
 =========
+
+[1.23.0-3] - 2024-09-11
+----------------------------
+
+### New Features
+
+- [bootloader - bootloader role tests do not work on ostree [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58917)
+- [logging - RFE - system-roles - logging: Add truncate options for local file inputs [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58485)
+- [logging - redhat.rhel_system_roles.logging role fails to process logging_outputs: of type: "custom" [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58481)
+- [logging - [RFE] Add the umask settings or enable a variable in linux-system-roles.logging [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58477)
+- [nbde_client - feat: Allow initrd configuration to be skipped [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58519)
+
+### Bug Fixes
+
+- [ - package rhel-system-roles.noarch does not provide docs for ansible-doc [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58465)
+- [ad_integration - fix: Sets domain name lower case in realmd.conf section header [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58494)
+- [bootloader - fix: Set user.cfg path to /boot/grub2/ on EL 9 UEFI [rhel-8]](https://issues.redhat.com/browse/RHEL-45711)
+- [cockpit - cockpit install all wildcard match does not work in newer el9 [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58515)
+- [logging - Setup imuxsock using rhel-system-roles.logging causing an error EL8](https://issues.redhat.com/browse/RHEL-37550)
+- [podman - fix: proper cleanup for networks; ensure cleanup of resources [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58525)
+- [podman - fix: grab name of network to remove from quadlet file [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58511)
+- [podman - Create podman secret when skip_existing=True and it does not exist [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58507)
+- [podman - fix: do not use become for changing hostdir ownership, and expose subuid/subgid info [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58503)
+- [podman - fix: use correct user for cancel linger file name [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58498)
+- [podman - redhat.rhel_system_roles.podman fails to configure and run containers with podman rootless using different username and groupname. [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58460)
+- [sshd - second SSHD service broken [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58473)
+- [storage - rhel-system-role.storage is not idempotent [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58469)
+- [timesync - System Roles: No module documentation [rhel-8.10.z]](https://issues.redhat.com/browse/RHEL-58489)
+
 [1.23.0] - 2024-01-15
 ----------------------------
 

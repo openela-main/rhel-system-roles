@@ -1,0 +1,34 @@
+From aa6e494963a3bded3b1ca7ef5a81e0106e68d5bc Mon Sep 17 00:00:00 2001
+From: Jan Pokorny <japokorn@redhat.com>
+Date: Thu, 6 Jun 2024 11:54:48 +0200
+Subject: [PATCH 08/10] test: lvm pool members test fix
+
+tests_lvm_pool_members started to fail. It tried to create a device with
+a requested size (20m) that was less than minimal allowed size (300m) for that type of
+volume. Role automatically resized the device to allowed size. That lead to discrepancy
+in actual and expected size values.
+
+Increasing the requested device size to be same or larger than minimal fixes the
+issue.
+
+(cherry picked from commit ee740b7b14d09e09a26dd5eb95e8950aeb15147d)
+---
+ tests/tests_lvm_pool_members.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/tests_lvm_pool_members.yml b/tests/tests_lvm_pool_members.yml
+index 63c10c7..320626e 100644
+--- a/tests/tests_lvm_pool_members.yml
++++ b/tests/tests_lvm_pool_members.yml
+@@ -6,7 +6,7 @@
+     storage_safe_mode: false
+     storage_use_partitions: true
+     volume_group_size: '10g'
+-    volume_size: '20m'
++    volume_size: '300m'
+   tags:
+     - tests::lvm
+ 
+-- 
+2.46.0
+

@@ -1,0 +1,38 @@
+From c78741d6d5a782f599ee42c6deb89b80426e403d Mon Sep 17 00:00:00 2001
+From: Rich Megginson <rmeggins@redhat.com>
+Date: Fri, 6 Sep 2024 14:15:20 -0600
+Subject: [PATCH 115/115] fix: Cannot remove volumes from kube yaml - need to
+ convert yaml to list
+
+Cause: __podman_quadlet_parsed was not converted to a list.
+
+Consequence: On older versions of Ansible, the volumes from the kube yaml
+were not removed when removing quadlets.
+
+Fix: Convert __podman_quadlet_parsed to a list after parsing.
+
+Result: Older versions of Ansible can remove volumes specified
+in kube yaml files.
+
+Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+(cherry picked from commit 423c98342c82893aca891d49c63713193dc96222)
+---
+ tasks/parse_quadlet_file.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tasks/parse_quadlet_file.yml b/tasks/parse_quadlet_file.yml
+index 5f5297f..2d58c4e 100644
+--- a/tasks/parse_quadlet_file.yml
++++ b/tasks/parse_quadlet_file.yml
+@@ -45,7 +45,7 @@
+ - name: Parse quadlet yaml file
+   set_fact:
+     __podman_quadlet_parsed: "{{ __podman_quadlet_raw.content | b64decode |
+-      from_yaml_all }}"
++      from_yaml_all | list }}"
+   when:
+     - __podman_service_name | length == 0
+     - __podman_quadlet_file.endswith(".yml") or
+-- 
+2.46.0
+
