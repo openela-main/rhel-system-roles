@@ -1,5 +1,56 @@
 Changelog
 =========
+[1.88.9] - 2024-09-13
+
+### New Features
+
+- [bootloader - bootloader role tests do not work on ostree](https://issues.redhat.com/browse/RHEL-26714)
+- [gfs2 - add gfs2 system role](https://issues.redhat.com/browse/RHEL-34214)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - Utilization Support](https://issues.redhat.com/browse/RHEL-33532)
+- [ha_cluster - [RFE] ha_cluster_node_options allows per-node addresses and SBD options to be set](https://issues.redhat.com/browse/RHEL-30111)
+- [ha_cluster - [RFE] make it easier to install cloud agents](https://issues.redhat.com/browse/RHEL-27186)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - ACL Support](https://issues.redhat.com/browse/RHEL-17271)
+- [ha_cluster - alerts support](https://issues.redhat.com/browse/RHEL-49596)
+- [journald - feat: Add options for rate limit interval and burst](https://issues.redhat.com/browse/RHEL-30170)
+- [logging - RFE - system-roles - logging: Add truncate options for local file inputs](https://issues.redhat.com/browse/RHEL-46590)
+- [logging - redhat.rhel_system_roles.logging role fails to process logging_outputs: of type: "custom"](https://issues.redhat.com/browse/RHEL-40273)
+- [logging - [RFE] Add the umask settings or enable a variable in linux-system-roles.logging](https://issues.redhat.com/browse/RHEL-34935)
+- [nbde_client - feat: Allow initrd configuration to be skipped](https://issues.redhat.com/browse/RHEL-45717)
+- [network - support route src parameter](https://issues.redhat.com/browse/RHEL-3252)
+- [podman - feat: manage TLS cert/key files for registry connections and validate certs](https://issues.redhat.com/browse/RHEL-33547)
+- [podman - podman role should support default credentials and per-unit credentials](https://issues.redhat.com/browse/RHEL-30185)
+- [podman - podman role should support containers-auth.json](https://issues.redhat.com/browse/RHEL-30183)
+- [postfix - feat: Added postfix_files feature as a simple means to add extra files/maps to config](https://issues.redhat.com/browse/RHEL-46854)
+- [snapshot - feat: rewrite snapshot.py as an Ansible module / add support for thin origins](https://issues.redhat.com/browse/RHEL-48227)
+- [ssh - feat: Add new configuration options and remove false positives in the test](https://issues.redhat.com/browse/RHEL-40180)
+- [storage - [RFE] manage stratis](https://issues.redhat.com/browse/RHEL-31854)
+- [storage - [RHEL9][RFE] resize LVM PVs](https://issues.redhat.com/browse/RHEL-14862)
+- [storage - Fingerprint storage RHEL System Role managed config files](https://issues.redhat.com/browse/RHEL-30888)
+- [sudo - Add sudo system role](https://issues.redhat.com/browse/RHEL-37549)
+
+### Bug Fixes
+
+- [ - package rhel-system-roles.noarch does not provide docs for ansible-doc](https://issues.redhat.com/browse/RHEL-18075)
+- [ad_integration - fix: Sets domain name lower case in realmd.conf section header](https://issues.redhat.com/browse/RHEL-28658)
+- [bootloader - fix: Set user.cfg path to /boot/grub2/ on EL 9 UEFI](https://issues.redhat.com/browse/RHEL-39996)
+- [cockpit - cockpit install all wildcard match does not work in newer el9](https://issues.redhat.com/browse/RHEL-41090)
+- [ha_cluster - Fix inconsistent approach for multiple `attributes.attrs` in `ha_cluster_node_options`](https://issues.redhat.com/browse/RHEL-33076)
+- [ha_cluster - Fixes for new pcs and ansible](https://issues.redhat.com/browse/RHEL-55295)
+- [kernel_settings - fix: Use tuned files instead of using it as a module](https://issues.redhat.com/browse/RHEL-53896)
+- [logging - Setup imuxsock using rhel-system-roles.logging causing an error](https://issues.redhat.com/browse/RHEL-35561)
+- [network - Fix testing Failures due to connection.autoconnect-ports Unknown Property](https://issues.redhat.com/browse/RHEL-32872)
+- [network - Make sure that the network role CI is solid robust](https://issues.redhat.com/browse/RHEL-25264)
+- [podman - fix: proper cleanup for networks; ensure cleanup of resources](https://issues.redhat.com/browse/RHEL-50102)
+- [podman - fix: grab name of network to remove from quadlet file](https://issues.redhat.com/browse/RHEL-40761)
+- [podman - Create podman secret when skip_existing=True and it does not exist](https://issues.redhat.com/browse/RHEL-39438)
+- [podman - fix: do not use become for changing hostdir ownership, and expose subuid/subgid info](https://issues.redhat.com/browse/RHEL-32464)
+- [podman - fix: use correct user for cancel linger file name](https://issues.redhat.com/browse/RHEL-32382)
+- [podman - fails to configure and run containers with podman rootless using different username and groupname](https://issues.redhat.com/browse/RHEL-56626)
+- [rhc - fix: drop usage of "auto_attach" of the "redhat_subscription" module](https://issues.redhat.com/browse/RHEL-53902)
+- [sshd - second SSHD service broken](https://issues.redhat.com/browse/RHEL-29309)
+- [storage - [RHEL8 ] var unused_disks get different sector size disks   ](https://issues.redhat.com/browse/RHEL-25994)
+- [storage - rhel-system-role.storage is not idempotent](https://issues.redhat.com/browse/RHEL-25777)
+
 [1.23.0] - 2024-01-15
 ----------------------------
 

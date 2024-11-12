@@ -22,7 +22,36 @@ declare -A plugin_map=(
   [containers/podman/plugins/modules/podman_play.py]=podman
   [containers/podman/plugins/modules/podman_secret.py]=podman
   [containers/podman/plugins/module_utils/podman/common.py]=podman
+  [containers/podman/plugins/module_utils/podman/quadlet.py]=podman
 )
+
+# fix the following issue
+# ERROR: Found 1 pylint issue(s) which need to be resolved:
+# ERROR: plugins/modules/rhsm_repository.py:263:8: wrong-collection-deprecated: Wrong collection name ('community.general') found in call to Display.deprecated or AnsibleModule.deprecate
+sed "s/collection_name='community.general'/collection_name='%{collection_namespace}.%{collection_name}'/" \
+  -i .external/community/general/plugins/modules/rhsm_repository.py
+
+fix_module_documentation() {
+  local module_src doc_fragment_name df_dest_dir
+  local -a paths
+  module_src=".external/$1"
+  sed ':a;N;$!ba;s/description:\n\( *\)/description:\n\1- "WARNING: Do not use this plugin directly! It is only for role internal use."\n\1/' \
+    -i "$module_src"
+  # grab documentation fragments
+  for doc_fragment_name in $(awk -F'[ -]+' '/^extends_documentation_fragment:/ {reading = 1; next}; /^[ -]/ {if (reading) {print $2}; next}; /^[^ -]/ {if (reading) {exit}}' "$module_src"); do
+    if [ "$doc_fragment_name" = files ]; then continue; fi  # this one is built-in
+    df_dest_dir="%{collection_build_path}/plugins/doc_fragments"
+    if [ ! -d "$df_dest_dir" ]; then
+      mkdir -p "$df_dest_dir"
+    fi
+    paths=(${doc_fragment_name//./ })
+    # if we ever have two different collections that have the same doc_fragment name
+    # with different contents, we will be in trouble . . .
+    # will have to make the doc fragment files unique, then edit $dest to use
+    # the unique name
+    cp ".external/${paths[0]}/${paths[1]}/plugins/doc_fragments/${paths[2]}.py" "$df_dest_dir"
+  done
+}
 
 declare -a modules mod_utils collection_plugins
 declare -A dests
@@ -31,9 +60,12 @@ for src in "${!plugin_map[@]}"; do
   roles="${plugin_map["$src"]}"
   if [ "$roles" = __collection ]; then
     collection_plugins+=("$src")
+    case "$src" in
+    */plugins/modules/*) fix_module_documentation "$src";;
+    esac
   else
     case "$src" in
-    */plugins/modules/*) srcdir=plugins/modules; subdir=library; modules+=("$src") ;;
+    */plugins/modules/*) srcdir=plugins/modules; subdir=library; modules+=("$src"); fix_module_documentation "$src";;
     */plugins/module_utils/*) srcdir=plugins/module_utils; mod_utils+=("$src") ;;
     */plugins/action/*) srcdir=plugins/action ;;
     esac
@@ -54,9 +86,6 @@ for src in "${!plugin_map[@]}"; do
       mkdir -p "$destdir"
     fi
     cp -pL ".external/$src" "$dest"
-    sed -e ':a;N;$!ba;s/description:\n\( *\)/description:\n\1- WARNING: Do not use this plugin directly! It is only for role internal use.\n\1/' \
-      -e '/^extends_documentation_fragment:/,/^[^ -]/{/^extends/d;/^[ -]/d}' \
-      -i "$dest"
   done
 done
 
@@ -92,11 +121,32 @@ done
 # for podman, change the FQCN - using a non-FQCN module name doesn't seem to work,
 # even for the legacy role format
 for rolename in %{rolenames}; do
-    find "$rolename" -type f -exec \
-         sed -e "s/linux-system-roles[.]${rolename}\\>/%{roleinstprefix}${rolename}/g" \
-             -e "s/fedora[.]linux_system_roles[.]/%{collection_namespace}.%{collection_name}./g" \
-             -e "s/containers[.]podman[.]/%{collection_namespace}.%{collection_name}./g" \
-             -e "s/community[.]general[.]/%{collection_namespace}.%{collection_name}./g" \
-             -e "s/ansible[.]posix[.]/%{collection_namespace}.%{collection_name}./g" \
-             -i {} \;
+  find "$rolename" -type f -exec \
+    sed -e "s/linux-system-roles[.]${rolename}\\>/%{roleinstprefix}${rolename}/g" \
+        -e "s/fedora[.]linux_system_roles[.]/%{collection_namespace}.%{collection_name}./g" \
+        -e "s/containers[.]podman[.]/%{collection_namespace}.%{collection_name}./g" \
+        -e "s/community[.]general[.]/%{collection_namespace}.%{collection_name}./g" \
+        -e "s/ansible[.]posix[.]/%{collection_namespace}.%{collection_name}./g" \
+        -i {} \;
+done
+
+# add ansible-test ignores needed due to vendoring
+for ansible_ver in 2.14 2.15 2.16; do
+  ignore_file="podman/.sanity-ansible-ignore-${ansible_ver}.txt"
+  cat >> "$ignore_file" <<EOF
+plugins/module_utils/podman_lsr/podman/quadlet.py compile-2.7!skip
+plugins/module_utils/podman_lsr/podman/quadlet.py import-2.7!skip
+plugins/modules/podman_image.py import-2.7!skip
+plugins/modules/podman_play.py import-2.7!skip
+EOF
+done
+# these platforms still use python 3.5
+for ansible_ver in 2.14 2.15; do
+  ignore_file="podman/.sanity-ansible-ignore-${ansible_ver}.txt"
+  cat >> "$ignore_file" <<EOF
+plugins/module_utils/podman_lsr/podman/quadlet.py compile-3.5!skip
+plugins/module_utils/podman_lsr/podman/quadlet.py import-3.5!skip
+plugins/modules/podman_image.py import-3.5!skip
+plugins/modules/podman_play.py import-3.5!skip
+EOF
 done
