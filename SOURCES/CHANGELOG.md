@@ -1,6 +1,42 @@
 Changelog
 =========
+
+[1.95.7] - 2025-03-06
+----------------------------
+
+### New Features
+
+- [aide - New role aide to manage system integrity checking](https://issues.redhat.com/browse/RHEL-67244)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export corosync configuration [rhel-9]](https://issues.redhat.com/browse/RHEL-70483)
+- [logging - [RFE] Add methods to define and set up custom templates in the logging role of RHEL systems roles](https://issues.redhat.com/browse/RHEL-61947)
+- [network - Support may-fail in the network role](https://issues.redhat.com/browse/RHEL-63026)
+- [network - Support autoconnect_retries in the network role](https://issues.redhat.com/browse/RHEL-61599)
+- [podman - support the pod quadlet type](https://issues.redhat.com/browse/RHEL-36014)
+- [postfix - feat: support postfix_default_database_type](https://issues.redhat.com/browse/RHEL-69983)
+- [sshd - fix: rename var sshd -> sshd_config and deprecate the former](https://issues.redhat.com/browse/RHEL-73408)
+- [sudo - feat: Add variable that handles semantic check for sudoers](https://issues.redhat.com/browse/RHEL-61596)
+- [systemd - support management of user units](https://issues.redhat.com/browse/RHEL-27760)
+
+### Bug Fixes
+
+- [certificate - rhel-system-roles.certificate with IPA backend hangs processes when repeating playbook](https://issues.redhat.com/browse/RHEL-13333)
+- [firewall - fix: Prevent interface definitions overriding 'changed' value when other elements are changed](https://issues.redhat.com/browse/RHEL-65758)
+- [ha_cluster - rhel_system_roles.ha_cluster - adapt the role for pcs-0.12 [rhel-9]](https://issues.redhat.com/browse/RHEL-70581)
+- [ha_cluster - list cloud agent packages by architecture](https://issues.redhat.com/browse/RHEL-55538)
+- [metrics - fix: add support for Valkey](https://issues.redhat.com/browse/RHEL-65748)
+- [network - fix: Prioritize find link info by permanent MAC address, with fallback to current address](https://issues.redhat.com/browse/RHEL-73404)
+- [podman - fix: get user information for secrets](https://issues.redhat.com/browse/RHEL-73402)
+- [postgresql - postgresql role: The postgresql_cert_name variable doesn't work with existing certificates](https://issues.redhat.com/browse/RHEL-62395)
+- [rhc - does not enable content in EL10 systems](https://issues.redhat.com/browse/RHEL-81589)
+- [sshd - fix: Reload the service when needed](https://issues.redhat.com/browse/RHEL-73409)
+- [sshd - fix: use quote with command, shell and validate with variable](https://issues.redhat.com/browse/RHEL-73406)
+- [storage - Ansible storage role 'grow_to_fill' option on LVM pools always failing with LVM resize failure due to miscalculation of free extents.](https://issues.redhat.com/browse/RHEL-73244)
+- [storage - "Make sure required packages are installed' task fails because Blivet requires the kmod-kvdo package, which is no longer available on RHEL-10 [rhel-9]](https://issues.redhat.com/browse/RHEL-82160)
+- [systemd - fix: Always become user we are managing](https://issues.redhat.com/browse/RHEL-70566)
+- [vpn - no ansible-doc for redhat.rhel_system_roles.vpn_ipaddr](https://issues.redhat.com/browse/RHEL-61085)
+
 [1.88.9] - 2024-09-13
+---------------------
 
 ### New Features
 

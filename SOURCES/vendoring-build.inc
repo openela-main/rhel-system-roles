@@ -9,6 +9,7 @@ declare -A plugin_map=(
   [ansible/posix/plugins/modules/rhel_facts.py]=__collection
   [ansible/posix/plugins/modules/rhel_rpm_ostree.py]=__collection
   [ansible/posix/plugins/module_utils/mount.py]=storage
+  [ansible/posix/plugins/module_utils/_respawn.py]=selinux
   [community/general/plugins/modules/ini_file.py]="tlog ad_integration"
   [community/general/plugins/modules/modprobe.py]=ha_cluster
   [community/general/plugins/modules/redhat_subscription.py]=rhc
@@ -131,13 +132,16 @@ for rolename in %{rolenames}; do
 done
 
 # add ansible-test ignores needed due to vendoring
+# vendoring makes rhsm_repository.py lines too long :-(
 for ansible_ver in 2.14 2.15 2.16; do
   ignore_file="podman/.sanity-ansible-ignore-${ansible_ver}.txt"
   cat >> "$ignore_file" <<EOF
 plugins/module_utils/podman_lsr/podman/quadlet.py compile-2.7!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py import-2.7!skip
+plugins/modules/podman_image.py compile-2.7!skip
 plugins/modules/podman_image.py import-2.7!skip
 plugins/modules/podman_play.py import-2.7!skip
+plugins/modules/rhsm_repository.py pep8!skip
 EOF
 done
 # these platforms still use python 3.5
@@ -146,7 +150,21 @@ for ansible_ver in 2.14 2.15; do
   cat >> "$ignore_file" <<EOF
 plugins/module_utils/podman_lsr/podman/quadlet.py compile-3.5!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py import-3.5!skip
+plugins/modules/podman_image.py compile-3.5!skip
 plugins/modules/podman_image.py import-3.5!skip
 plugins/modules/podman_play.py import-3.5!skip
 EOF
+done
+
+# special handling for ansible.posix seboolean, selinux
+# see https://github.com/ansible-collections/ansible.posix/pull/460#issuecomment-2479725049
+for file in selinux/library/seboolean.py selinux/library/selinux.py; do
+  sed -e '/^from ansible.module_utils.selinux_lsr._respawn import respawn_module, HAS_RESPAWN_UTIL/a\
+HAS_RESPAWN_UTIL = False\
+\
+\
+def respawn_module(module_name):\
+    pass' \
+  -e '/^from ansible.module_utils.selinux_lsr._respawn import respawn_module, HAS_RESPAWN_UTIL/d' \
+  -i "$file"
 done
