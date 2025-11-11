@@ -1,6 +1,55 @@
 Changelog
 =========
 
+[1.108.6] - 2025-08-20
+----------------------------
+
+### New Features
+
+- [ad_integration - feat: control sssd domain/realm section name to use; merge settings into chosen name [rhel-9]](https://issues.redhat.com/browse/RHEL-99089)
+- [bootloader - Add functionality to set default kernel with bootloader](https://issues.redhat.com/browse/RHEL-87579)
+- [firewall - Add `includes` when defining a custom service](https://issues.redhat.com/browse/RHEL-84951)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export pcsd and OS configuration [rhel-9]](https://issues.redhat.com/browse/RHEL-89913)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export resources configuration [rhel-9]](https://issues.redhat.com/browse/RHEL-89912)
+- [journald - feat: Add support for SystemKeepFree journald.conf option [rhel-9]](https://issues.redhat.com/browse/RHEL-95874)
+- [journald - feat: Add MaxRetention configuration [rhel-9]](https://issues.redhat.com/browse/RHEL-102637)
+- [metrics - support for gathering spark metrics](https://issues.redhat.com/browse/RHEL-17564)
+- [metrics - [RFE] Allow defining enabled PCP PMDAs with the metrics role [rhel-9]](https://issues.redhat.com/browse/RHEL-104659)
+- [podman - podman_registries_conf TOML tables not supported](https://issues.redhat.com/browse/RHEL-84930)
+- [timesync - rhel-system-roles.timesync doesn't work when IPv6 is disabled in environment](https://issues.redhat.com/browse/RHEL-85079)
+
+### Bug Fixes
+
+- [docs links should not use rhel-system-roles.github](https://issues.redhat.com/browse/RHEL-85569)
+- [ansible-core and rhel-system-roles incompatible](https://issues.redhat.com/browse/RHEL-94444)
+- [ad_integration - Introduced option to skip package installation [rhel-9]](https://issues.redhat.com/browse/RHEL-88314)
+- [bootloader - fix: Fix removing kernel options with values [rhel-9]](https://issues.redhat.com/browse/RHEL-101678)
+- [bootloader - fix: boolean values and null values are not allowed [rhel-9]](https://issues.redhat.com/browse/RHEL-107015)
+- [ha_cluster - fix: restart qdevice when its certificates have been regenerated [rhel-9]](https://issues.redhat.com/browse/RHEL-88251)
+- [ha_cluster - ha_cluster: 404 on removing qnetd certificate on rhel9.4 client vm [rhel-9]](https://issues.redhat.com/browse/RHEL-88241)
+- [ha_cluster - Fix missing /var/lib/pcsd directory after pcs installation [rhel-9]](https://issues.redhat.com/browse/RHEL-101663)
+- [network - Incorrect attribute checks for routing rule validation](https://issues.redhat.com/browse/RHEL-85872)
+- [network - Network role should refine MAC validation using interface name](https://issues.redhat.com/browse/RHEL-84362)
+- [network - Network role should remove MAC address matching from SysUtil.link_info_find()](https://issues.redhat.com/browse/RHEL-84197)
+- [podman - fix: render boolean option values correctly in toml files](https://issues.redhat.com/browse/RHEL-85702)
+- [podman - bug in toml rendering of `podman_containers_conf`](https://issues.redhat.com/browse/RHEL-84940)
+- [podman - Directory .config/containers mode constantly changed](https://issues.redhat.com/browse/RHEL-84920)
+- [podman - fix: Do not restart logind unless absolutely necessary](https://issues.redhat.com/browse/RHEL-84910)
+- [podman - specifying multiple users causes resources to be associated with wrong user [rhel-9]](https://issues.redhat.com/browse/RHEL-105095)
+- [postfix - fix: configure postfix to listen only to IPv4 if IPv6 is disabled [rhel-9]](https://issues.redhat.com/browse/RHEL-103889)
+- [selinux - fix: Set the kernel command line selinux parameter correctly when changing selinux state](https://issues.redhat.com/browse/RHEL-93296)
+- [selinux - fix: tempdir path not defined in check mode; __selinux_item.path may be undefined [rhel-9]](https://issues.redhat.com/browse/RHEL-103575)
+- [sshd - fix: New configuration option in CentOS 10](https://issues.redhat.com/browse/RHEL-107049)
+- [storage - [storage] LVM grow_to_fill feature doesn't work with latest blivet](https://issues.redhat.com/browse/RHEL-89120)
+- [storage - Resize logical volumes is not proper idempotent](https://issues.redhat.com/browse/RHEL-82825)
+- [storage - fix: Fix getting PVs from raid_disks for RAID LVs [rhel-9]](https://issues.redhat.com/browse/RHEL-95885)
+- [storage - Improve error reporting when invalid or unsupported RAID configuration is given [rhel-9]](https://issues.redhat.com/browse/RHEL-104891)
+- [storage - Incorrect key file in crypttab entry for volume encrypted_vol [rhel-9]](https://issues.redhat.com/browse/RHEL-104676)
+- [sudo - redhat.rhel_system_roles.sudo takes 6-7 hours to scan /etc/sudoers.d [rhel-9]](https://issues.redhat.com/browse/RHEL-106733)
+- [systemd - fix: files and templates in nested directories are not placed correctly](https://issues.redhat.com/browse/RHEL-88772)
+- [systemd - Systemd unmask should run at the begin to allow the role to manage the units](https://issues.redhat.com/browse/RHEL-81755)
+- [timesync - fix: add default seccomp filters for el9/10 [rhel-9]](https://issues.redhat.com/browse/RHEL-88299)
+
 [1.95.7] - 2025-03-06
 ----------------------------
 
@@ -27,11 +76,11 @@ Changelog
 - [network - fix: Prioritize find link info by permanent MAC address, with fallback to current address](https://issues.redhat.com/browse/RHEL-73404)
 - [podman - fix: get user information for secrets](https://issues.redhat.com/browse/RHEL-73402)
 - [postgresql - postgresql role: The postgresql_cert_name variable doesn't work with existing certificates](https://issues.redhat.com/browse/RHEL-62395)
-- [rhc - does not enable content in EL10 systems](https://issues.redhat.com/browse/RHEL-81589)
+- [rhc - does not enable content in EL10 systems](https://issues.redhat.com/browse/RHEL-82516)
 - [sshd - fix: Reload the service when needed](https://issues.redhat.com/browse/RHEL-73409)
 - [sshd - fix: use quote with command, shell and validate with variable](https://issues.redhat.com/browse/RHEL-73406)
 - [storage - Ansible storage role 'grow_to_fill' option on LVM pools always failing with LVM resize failure due to miscalculation of free extents.](https://issues.redhat.com/browse/RHEL-73244)
-- [storage - "Make sure required packages are installed' task fails because Blivet requires the kmod-kvdo package, which is no longer available on RHEL-10 [rhel-9]](https://issues.redhat.com/browse/RHEL-82160)
+- [storage - "Make sure required packages are installed' task fails because Blivet requires the kmod-kvdo package, which is no longer available on RHEL-10 [rhel-9]](https://issues.redhat.com/browse/RHEL-82515)
 - [systemd - fix: Always become user we are managing](https://issues.redhat.com/browse/RHEL-70566)
 - [vpn - no ansible-doc for redhat.rhel_system_roles.vpn_ipaddr](https://issues.redhat.com/browse/RHEL-61085)
 
