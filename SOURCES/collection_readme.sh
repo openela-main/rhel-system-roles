@@ -9,6 +9,7 @@ sed -i -e '/## Currently supported distributions/{:1;/## Dependencies/!{N;b 1};s
     -e 's/Ansible Galaxy/Automation Hub/g' \
     -e 's/fedora\(.\)linux_system_roles/redhat\1rhel_system_roles/g' \
     -e 's/linux-system-roles/rhel-system-roles/g' \
+    -e 's/rhel-system-roles.github/linux-system-roles.github/g' \
     -e '/## Documentation/{:a;/## Support/!{N;b a};s|.*|## Documentation\nThe official RHEL System Roles documentation can be found in the [Product Documentation section of the Red Hat Customer Portal](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/administration_and_configuration_tasks_using_system_roles_in_rhel/index).\n\n## Support|}' \
     -e 's/$//' \
     $readme_md
