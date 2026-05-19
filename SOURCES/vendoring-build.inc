@@ -23,6 +23,7 @@ declare -A plugin_map=(
   [containers/podman/plugins/modules/podman_play.py]=podman
   [containers/podman/plugins/modules/podman_secret.py]=podman
   [containers/podman/plugins/module_utils/podman/common.py]=podman
+  [containers/podman/plugins/module_utils/podman/podman_image_lib.py]=podman
   [containers/podman/plugins/module_utils/podman/quadlet.py]=podman
 )
 
@@ -31,6 +32,13 @@ declare -A plugin_map=(
 # ERROR: plugins/modules/rhsm_repository.py:263:8: wrong-collection-deprecated: Wrong collection name ('community.general') found in call to Display.deprecated or AnsibleModule.deprecate
 sed "s/collection_name='community.general'/collection_name='%{collection_namespace}.%{collection_name}'/" \
   -i .external/community/general/plugins/modules/rhsm_repository.py
+
+# fix ansible-test docstring issue in ini_file.py
+# I think this only affects rhel9 ansible 2.14, but we don't need this at all
+# ERROR: plugins/modules/ini_file.py:0:0: invalid-documentation: DOCUMENTATION.seealso.0.module: required key not provided @ data['seealso'][0]['module']. Got None
+# ERROR: plugins/modules/ini_file.py:0:0: invalid-documentation: DOCUMENTATION.seealso.0.plugin: extra keys not allowed @ data['seealso'][0]['plugin']. Got 'ansible.builtin.ini'
+# ERROR: plugins/modules/ini_file.py:0:0: invalid-documentation: DOCUMENTATION.seealso.0.plugin_type: extra keys not allowed @ data['seealso'][0]['plugin_type']. Got 'lookup'
+sed '/^seealso/,/^author/{/^seealso/d;/^[ ]/d}' -i .external/community/general/plugins/modules/ini_file.py
 
 fix_module_documentation() {
   local module_src doc_fragment_name df_dest_dir
@@ -50,7 +58,14 @@ fix_module_documentation() {
     # with different contents, we will be in trouble . . .
     # will have to make the doc fragment files unique, then edit $dest to use
     # the unique name
-    cp ".external/${paths[0]}/${paths[1]}/plugins/doc_fragments/${paths[2]}.py" "$df_dest_dir"
+    doc_fragment_src=".external/${paths[0]}/${paths[1]}/plugins/doc_fragments/${paths[2]}.py"
+    if [ -f "$doc_fragment_src" ]; then
+      cp "$doc_fragment_src" "$df_dest_dir"
+    elif [ "${paths[2]}" = files ]; then
+      echo Skipping files.py - this is an Ansible built-in
+    else
+      echo ERROR: could not find "$doc_fragment_src"
+    fi
   done
 }
 
@@ -100,6 +115,10 @@ for dest in "${!dests[@]}"; do
     python_name="$(dirname "$module")"
     python_name="${python_name////[.]}"
     sed -e "s/ansible_collections[.]${python_name}[.]/ansible.modules./" -i "$dest"
+    # podman uses relative imports for module_utils
+    if [ "$role" = podman ]; then
+      sed -e "s/^from [.][.]module_utils[.]podman[.]/from ..module_utils.podman_lsr.podman./" -i "$dest"
+    fi
   done
   for mod_util in "${mod_utils[@]}"; do
     # some mod_utils have subdirs, some do not
@@ -136,11 +155,18 @@ done
 for ansible_ver in 2.14 2.15 2.16; do
   ignore_file="podman/.sanity-ansible-ignore-${ansible_ver}.txt"
   cat >> "$ignore_file" <<EOF
+plugins/module_utils/podman_lsr/podman/common.py compile-2.7!skip
+plugins/module_utils/podman_lsr/podman/common.py import-2.7!skip
+plugins/module_utils/podman_lsr/podman/podman_image_lib.py compile-2.7!skip
+plugins/module_utils/podman_lsr/podman/podman_image_lib.py import-2.7!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py compile-2.7!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py import-2.7!skip
+plugins/modules/manage_image_cache.py compile-2.7!skip
+plugins/modules/manage_image_cache.py import-2.7!skip
 plugins/modules/podman_image.py compile-2.7!skip
 plugins/modules/podman_image.py import-2.7!skip
 plugins/modules/podman_play.py import-2.7!skip
+plugins/modules/podman_secret.py import-2.7!skip
 plugins/modules/rhsm_repository.py pep8!skip
 EOF
 done
@@ -148,11 +174,18 @@ done
 for ansible_ver in 2.14 2.15; do
   ignore_file="podman/.sanity-ansible-ignore-${ansible_ver}.txt"
   cat >> "$ignore_file" <<EOF
+plugins/module_utils/podman_lsr/podman/common.py compile-3.5!skip
+plugins/module_utils/podman_lsr/podman/common.py import-3.5!skip
+plugins/module_utils/podman_lsr/podman/podman_image_lib.py compile-3.5!skip
+plugins/module_utils/podman_lsr/podman/podman_image_lib.py import-3.5!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py compile-3.5!skip
 plugins/module_utils/podman_lsr/podman/quadlet.py import-3.5!skip
+plugins/modules/manage_image_cache.py compile-3.5!skip
+plugins/modules/manage_image_cache.py import-3.5!skip
 plugins/modules/podman_image.py compile-3.5!skip
 plugins/modules/podman_image.py import-3.5!skip
 plugins/modules/podman_play.py import-3.5!skip
+plugins/modules/podman_secret.py import-3.5!skip
 EOF
 done
 
