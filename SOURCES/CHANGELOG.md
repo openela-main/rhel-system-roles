@@ -1,6 +1,42 @@
 Changelog
 =========
 
+[1.120.5] - 2026-02-23
+----------------------------
+
+### New Features
+
+- All roles support running with ANSIBLE_INJECT_FACT_VARS=false
+- [firewall - [RFE]: rhel-system-roles.firewall: add IPv6 ipset support](https://issues.redhat.com/browse/RHEL-114467)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export CIB properties configuration](https://issues.redhat.com/browse/RHEL-46227)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export constraints configuration](https://issues.redhat.com/browse/RHEL-46226)
+- [ha_cluster - feat: add support for fencing-watchdog-timeout](https://issues.redhat.com/browse/RHEL-136597)
+- [ha_cluster - ha_cluster role does not work in container builds](https://issues.redhat.com/browse/RHEL-120413)
+- [metrics - [RFE] configure TLS certificates in grafana using the metrics system role](https://issues.redhat.com/browse/RHEL-136607)
+- [postgresql - add PostgreSQL 18](https://issues.redhat.com/browse/RHEL-144914)
+- [selinux - Missing proto 'sctp' and 'dccp'](https://issues.redhat.com/browse/RHEL-145214)
+- [snapshot - add support for bootable snapsets](https://issues.redhat.com/browse/RHEL-104931)
+- [ssh - feat: Add new configuration option VersionAddendum](https://issues.redhat.com/browse/RHEL-138277)
+- [sshd - feat: Add new configuration option CanonicalMatchUser on RHEL/CentOS](https://issues.redhat.com/browse/RHEL-127971)
+- [sshd - feat: New OpenSSH configuration option GSSAPIDelegateCredentials](https://issues.redhat.com/browse/RHEL-144495)
+- [storage - add support for disk partitioning](https://issues.redhat.com/browse/RHEL-66738)
+
+### Bug Fixes
+
+- [aide - cannot manage rhel9.7/10.1 or earlier - unexpected character - line database=file](https://issues.redhat.com/browse/RHEL-129309)
+- [firewall - fix: el7 interface functionality requires NetworkManager](https://issues.redhat.com/browse/RHEL-150780)
+- [network - fix: Skip the loopback profile when deleting all profiles except the ones explicitly included](https://issues.redhat.com/browse/RHEL-123026)
+- [network - Ansible RHEL network system role fails cannot find route table main](https://issues.redhat.com/browse/RHEL-110865)
+- [nbde_client - Error in using the RHEL system role for nbde client [rhel-10]](https://issues.redhat.com/browse/RHEL-128428)
+- [selinux - [v 1.10.4] Prepare module installation -> "Template error: object of type 'dict' has no attribute 'path'"](https://issues.redhat.com/browse/RHEL-145247)
+- [sshd - fix: include external config files first so they can override all options](https://issues.redhat.com/browse/RHEL-123016)
+- [snapshot - Snapshot role ignores snapshot_lvm_bootable: true setting when creating a snapset](https://issues.redhat.com/browse/RHEL-135522)
+- [storage - Storage role crashes on systems without /etc/fstab](https://issues.redhat.com/browse/RHEL-115033)
+- [storage - [RHEL10.2] in _get_device_id IndexError: list index out of range](https://issues.redhat.com/browse/RHEL-137261)
+- [storage - [RHEL10.2]  ZeroDivisionError when creating LVM volume without size specification](https://issues.redhat.com/browse/RHEL-123523)
+- [storage - fix: ensure libblockdev-loop package on EL7 for loop mounts](https://issues.redhat.com/browse/RHEL-151437)
+- [vpn - [ERROR]: Task failed: object of type 'dict' has no attribute '1.1.1.1'](https://issues.redhat.com/browse/RHEL-145219)
+
 [1.108.6] - 2025-08-20
 ----------------------------
 
