@@ -1,6 +1,51 @@
 Changelog
 =========
 
+[2.4.2] - 2026-08-24
+----------------------------
+
+### New Features
+
+- Write roles fingerprints to /var/log/sysroles.jsonl
+- [allow disable of secure logging in system roles for debugging [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175651)
+- [auditd - auditd system role](https://redhat.atlassian.net/browse/RHEL-170879)
+- [certificate - feat: manage system certificate trust, CA certificates [rhel-9]](https://redhat.atlassian.net/browse/RHEL-210678)
+- [certificate - feat: Implement support for passing an issuer argument to the provider. [rhel-9]](https://redhat.atlassian.net/browse/RHEL-220560)
+- [crypto_policies - [RFE] redhat.rhel_system_roles.crypto_policies add option to reapply policy when .pmod file is changed [rhel-9]](https://redhat.atlassian.net/browse/RHEL-181360)
+- [fapolicyd - [RFE] - Manage trusted directories with fapolicyd RHEL System Role [rhel-9]](https://redhat.atlassian.net/browse/RHEL-219366)
+- [firewall - RFE: firewall system role not idempotent when using "previous: replaced" [rhel-9]](https://redhat.atlassian.net/browse/RHEL-176144)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export fencing levels configuration [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175659)
+- [ha_cluster - [RFE] rhel_system_roles.ha_cluster - export node attributes and utilization configuration [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175658)
+- [podman,selinux - Restart quadlet when mounted host files changed the state [rhel-9]](https://redhat.atlassian.net/browse/RHEL-145225)
+- [snapshot - explain in README how to use the extend feature [rhel-9]](https://redhat.atlassian.net/browse/RHEL-182280)
+- [snapshot - feat: add list command to report the status of LVM snapshots for specified VGs/LVs [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175664)
+- [snapshot - feat: add support for revertable snapshots with boot-time rollback capability [rhel-9]](https://redhat.atlassian.net/browse/RHEL-212147)
+- [sshd - feat: Add new c10s options GSSAPIAllowS4U2Self and GSSAPIProxyS4U2Services [rhel-9]](https://redhat.atlassian.net/browse/RHEL-167858)
+- [storage - [RFE] The storage system role should only install stratis when it's needed [rhel-9]](https://redhat.atlassian.net/browse/RHEL-181990)
+- [timesync - Support key and keyfile for authentication [rhel-9]](https://redhat.atlassian.net/browse/RHEL-145210)
+- [trustee_client - trustee_client - new system role [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175619)
+- [trustee_server - trustee_server - new system role [rhel-9]](https://redhat.atlassian.net/browse/RHEL-175618)
+
+### Bug Fixes
+
+- [ad_integration - realm join fails after changing to AD crypto policy [rhel-9]](https://redhat.atlassian.net/browse/RHEL-177565)
+- [bootloader - [RFE]  Provide an option to disable timeout management in redhat.rhel_system_roles.bootloader [rhel-9]](https://redhat.atlassian.net/browse/RHEL-211555)
+- [bootloader - bootloader system role changes /boot/grub2/grub.cfg permissions from 0600 to 0700 on UEFI systems causing CIS 1.4.2 compliance failure [rhel-9]](https://redhat.atlassian.net/browse/RHEL-191870)
+- [bootloader - Role ignores check mode / files changed in check mode [rhel-9]](https://redhat.atlassian.net/browse/RHEL-180861)
+- [bootloader - fix: support duplicate option names with different values [rhel-9]](https://redhat.atlassian.net/browse/RHEL-180604)
+- [certificate - Certificate renewal every time the role runs for IPA [rhel-9]](https://redhat.atlassian.net/browse/RHEL-220565)
+- [kernel_settings - The kernel_settings role is not idempotent on el7 [rhel-9]](https://redhat.atlassian.net/browse/RHEL-151853)
+- [nbde_client - add support for static networking with IP configuration [rhel-9]](https://redhat.atlassian.net/browse/RHEL-212633)
+- [nbde_client - nbde_client role should use hostonly_cmdline=yes on EL10 and later [rhel-9]](https://redhat.atlassian.net/browse/RHEL-208709)
+- [nbde_server - fix: Prevent symlink following privilege escalation in nbde_server_tang module [rhel-9]](https://redhat.atlassian.net/browse/RHEL-189402)
+- [network - Inverted retry condition in SysUtil.link_infos() makes retry loop ineffective [rhel-9]](https://redhat.atlassian.net/browse/RHEL-157026)
+- [podman - Prune images on ansible run [rhel-9]](https://redhat.atlassian.net/browse/RHEL-212677)
+- [podman - Support for multiple kubernetes objects in `podman_kube_specs` `kube_file_content` [rhel-9]](https://redhat.atlassian.net/browse/RHEL-191866)
+- [podman - `podman_run_as_user` is required to be set when running this role as non-root user [rhel-9]](https://redhat.atlassian.net/browse/RHEL-212672)
+- [selinux - fix: ensure policy modules are loaded before they can be referenced [rhel-9]](https://redhat.atlassian.net/browse/RHEL-182481)
+- [sudo - Small fix for line continuation characters [rhel-9]](https://redhat.atlassian.net/browse/RHEL-178497)
+- [sudo - Space missing in sudoers.j2 template before tags [rhel-9]](https://redhat.atlassian.net/browse/RHEL-178506)
+
 [1.120.5] - 2026-02-23
 ----------------------------
 
